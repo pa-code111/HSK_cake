@@ -166,13 +166,24 @@ def speak_word(text):
 st.title("🇨🇳 HSK Flashcard Intelligence")
 
 st.sidebar.header("แหล่งข้อมูล")
-uploaded = st.sidebar.file_uploader("อัปโหลดไฟล์ CSV (คอลัมน์: simplified, pinyin, meaning, hsk_level)", type=["csv"])
+uploaded = st.sidebar.file_uploader("อัปโหลดไฟล์ CSV (คอลัมน์: word, pinyin, trans_th, level)", type=["csv"])
 if uploaded is not None:
     try:
-        df = pd.read_csv(uploaded)
+        df_raw = pd.read_csv(uploaded)
     except Exception:
-        uploaded.seek(0)
-        df = pd.read_csv(uploaded, encoding='utf-8', engine='python')
+        try:
+            uploaded.seek(0)
+            df_raw = pd.read_csv(uploaded, encoding='utf-8', engine='python')
+        except Exception as e:
+            st.error(f"ไม่สามารถอ่านไฟล์ CSV ได้: {e}")
+            st.stop()
+    # ปรับคอลัมน์ให้ตรงกับรูปแบบที่คาดหวัง
+    if 'word' in df_raw.columns and 'trans_th' in df_raw.columns and 'level' in df_raw.columns:
+        df = df_raw[['word', 'pinyin', 'trans_th', 'level']].copy()
+        df.columns = ['simplified', 'pinyin', 'meaning', 'hsk_level']
+    else:
+        st.error(f"⚠️ CSV ต้องมีคอลัมน์: word, pinyin, trans_th, level")
+        st.stop()
 else:
     df = load_vocab()
     if df is None:
@@ -191,7 +202,8 @@ if query:
     )
     df = df[mask]
 
-available_levels = sorted(df['hsk_level'].astype(str).unique())
+# เรียงลำดับ HSK Level อย่างถูกต้อง (ตัวเลข)
+available_levels = sorted(df['hsk_level'].astype(str).unique(), key=lambda x: float(x))
 selected_levels = st.sidebar.multiselect("เลือกเลเวล HSK:", options=available_levels, default=available_levels)
 if selected_levels:
     filtered_df = df[df['hsk_level'].astype(str).isin(selected_levels)]
