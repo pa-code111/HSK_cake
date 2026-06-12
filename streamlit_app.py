@@ -268,6 +268,62 @@ def get_hsk_color(level):
 
 st.markdown(flip_card_css, unsafe_allow_html=True)
 
+# CSS for colored HSK level multiselect tags
+custom_css = """
+<style>
+/* Color tags for HSK levels */
+[data-testid="multiSelectOptionContainer"] {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+}
+
+/* Individual tag colors */
+.stMultiSelect [data-baseweb="tag"] {
+    background-color: #667eea;
+    border-radius: 20px;
+    padding: 8px 12px;
+}
+
+/* Level 1 - Green */
+.stMultiSelect [data-testid="multiSelectOptionContainer"] span:has-text("1") {
+    background-color: #4CAF50 !important;
+}
+
+/* Level 2 - Light Green */
+.stMultiSelect [data-testid="multiSelectOptionContainer"] span:has-text("2") {
+    background-color: #8BC34A !important;
+}
+
+/* Level 3 - Yellow */
+.stMultiSelect [data-testid="multiSelectOptionContainer"] span:has-text("3") {
+    background-color: #FFC107 !important;
+}
+
+/* Level 4 - Orange */
+.stMultiSelect [data-testid="multiSelectOptionContainer"] span:has-text("4") {
+    background-color: #FF9800 !important;
+}
+
+/* Level 5 - Red */
+.stMultiSelect [data-testid="multiSelectOptionContainer"] span:has-text("5") {
+    background-color: #FF5722 !important;
+}
+
+/* Level 6 - Purple */
+.stMultiSelect [data-testid="multiSelectOptionContainer"] span:has-text("6") {
+    background-color: #9C27B0 !important;
+}
+
+/* Level 7-9 - Gold */
+.stMultiSelect [data-testid="multiSelectOptionContainer"] span:has-text("7-9") {
+    background-color: #FFD700 !important;
+}
+</style>
+"""
+
+st.markdown(custom_css, unsafe_allow_html=True)
+
 st.title("🇨🇳 HSK Flashcard Intelligence")
 
 st.sidebar.header("แหล่งข้อมูล")
@@ -330,7 +386,11 @@ with tab1:
         if 'current_word' not in st.session_state or st.session_state.current_word_level not in selected_levels:
             st.session_state.current_word = filtered_df.sample().iloc[0]
             st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
+        
+        # Always ensure these exist
+        if 'card_flipped' not in st.session_state:
             st.session_state.card_flipped = False
+        if 'audio_played' not in st.session_state:
             st.session_state.audio_played = False
         
         # Initialize memory stats
@@ -353,48 +413,39 @@ with tab1:
             
             # Flip Card Element
             card_id = "flip-card"
-            flipped_class = "flipped" if st.session_state.card_flipped else ""
+            flipped_class = "flipped" if st.session_state.get('card_flipped', False) else ""
             
             # Get color based on HSK level
             colors = get_hsk_color(st.session_state.current_word['hsk_level'])
             
-            flip_card_html = f"""
-            <div class="{card_id} {flipped_class}" onclick="document.querySelector('.{card_id}').classList.toggle('flipped')" style="cursor: pointer;">
-                <div class="flip-card-inner">
-                    <div class="flip-card-front" style="background: linear-gradient({colors['gradient']}); color: {colors['fg']};">
-                        <div class="hsk-badge hsk-level-{st.session_state.current_word['hsk_level']}">
-                            HSK {st.session_state.current_word['hsk_level']}
+            # Create a placeholder and update it based on flip state
+            flip_placeholder = st.empty()
+            
+            with flip_placeholder.container():
+                flip_card_html = f"""
+                <div class="{card_id} {flipped_class}" style="cursor: default;">
+                    <div class="flip-card-inner">
+                        <div class="flip-card-front" style="background: linear-gradient({colors['gradient']}); color: {colors['fg']};">
+                            <div class="hsk-badge hsk-level-{st.session_state.current_word['hsk_level']}">
+                                HSK {st.session_state.current_word['hsk_level']}
+                            </div>
+                            <div>
+                                {st.session_state.current_word['simplified']}
+                                <div class="click-hint">👆 กดปุ่มด้านล่างเพื่อดำเนินการ</div>
+                            </div>
                         </div>
-                        <div>
-                            {st.session_state.current_word['simplified']}
-                            <div class="click-hint">คลิกเพื่อเปิด →</div>
+                        <div class="flip-card-back" style="background: linear-gradient({colors['gradient']}); color: {colors['fg']};">
+                            <div class="hsk-badge hsk-level-{st.session_state.current_word['hsk_level']}">
+                                HSK {st.session_state.current_word['hsk_level']}
+                            </div>
+                            <div class="pinyin-text">{st.session_state.current_word['pinyin']}</div>
+                            <div class="meaning-text">{st.session_state.current_word['meaning']}</div>
+                            <div class="click-hint">👆 กดปุ่มด้านล่างเพื่อดำเนินการ</div>
                         </div>
-                    </div>
-                    <div class="flip-card-back" style="background: linear-gradient({colors['gradient']}); color: {colors['fg']};">
-                        <div class="hsk-badge hsk-level-{st.session_state.current_word['hsk_level']}">
-                            HSK {st.session_state.current_word['hsk_level']}
-                        </div>
-                        <div class="pinyin-text">{st.session_state.current_word['pinyin']}</div>
-                        <div class="meaning-text">{st.session_state.current_word['meaning']}</div>
-                        <div class="click-hint">← คลิกเพื่อปิด</div>
                     </div>
                 </div>
-            </div>
-            """
-            
-            st.markdown(flip_card_html, unsafe_allow_html=True)
-            
-            # JavaScript to handle card flip in session state
-            st.markdown("""
-            <script>
-            const card = document.querySelector('.flip-card');
-            if (card) {
-                card.addEventListener('click', function() {
-                    this.classList.toggle('flipped');
-                });
-            }
-            </script>
-            """, unsafe_allow_html=True)
+                """
+                st.markdown(flip_card_html, unsafe_allow_html=True)
             
             st.markdown("---")
             
@@ -448,15 +499,30 @@ with tab1:
             
             st.markdown("---")
             
+            # Flip card button
+            if st.button("👁️ เปิดดูคำแปล", use_container_width=True):
+                st.session_state.card_flipped = not st.session_state.card_flipped
+                st.rerun()
+            
+            st.markdown("---")
+            
             # Control buttons
             col_btn1, col_btn2, col_btn3 = st.columns(3)
             with col_btn1:
-                if st.button("🔊 เล่นเสียงอีก"):
+                if st.button("🔊 เล่นเสียงอีก", use_container_width=True):
                     audio_fp = speak_word(st.session_state.current_word['simplified'])
-                    st.audio(audio_fp, format='audio/mp3')
+                    # Use autoplay audio element
+                    audio_base64 = audio_fp.getvalue()
+                    import base64
+                    b64_audio = base64.b64encode(audio_base64).decode()
+                    st.markdown(f"""
+                    <audio autoplay>
+                        <source src="data:audio/mp3;base64,{b64_audio}" type="audio/mpeg">
+                    </audio>
+                    """, unsafe_allow_html=True)
             
             with col_btn2:
-                if st.button("🔄 คำใหม่"):
+                if st.button("🔄 คำใหม่", use_container_width=True):
                     st.session_state.current_word = filtered_df.sample().iloc[0]
                     st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
                     st.session_state.card_flipped = False
@@ -465,7 +531,7 @@ with tab1:
                     st.rerun()
             
             with col_btn3:
-                if st.button("⏭️ ข้ามไป"):
+                if st.button("⏭️ ข้ามไป", use_container_width=True):
                     st.session_state.current_word = filtered_df.sample().iloc[0]
                     st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
                     st.session_state.card_flipped = False
