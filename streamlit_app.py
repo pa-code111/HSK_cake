@@ -534,6 +534,61 @@ with tab1:
             - 📖 พินอิน: {st.session_state.current_word['pinyin']}
             - 🇹🇭 ความหมาย: {st.session_state.current_word['meaning']}
             """)
+            
+            st.markdown("---")
+            st.write("**🤖 ถามเอไอ:**")
+            
+            # Initialize AI session state
+            if 'ai_response' not in st.session_state:
+                st.session_state.ai_response = None
+            if 'ai_question' not in st.session_state:
+                st.session_state.ai_question = f"อธิบายความหมายและวิธีใช้คำว่า {st.session_state.current_word['simplified']} ({st.session_state.current_word['pinyin']}) ในภาษาจีน"
+            
+            default_q = f"อธิบายความหมายและวิธีใช้คำว่า {st.session_state.current_word['simplified']} ({st.session_state.current_word['pinyin']}) ในภาษาจีน"
+            question = st.text_area("เขียนคำถาม:", value=default_q, height=80, key="ai_question_input")
+            
+            col_ai1, col_ai2 = st.columns(2)
+            
+            with col_ai1:
+                if st.button("🧠 ขอ ChatGPT", use_container_width=True, key="chatgpt_btn"):
+                    try:
+                        from openai import OpenAI
+                        api_key = st.secrets.get("OPENAI_API_KEY") if hasattr(st, "secrets") else None
+                        
+                        if not api_key:
+                            st.warning("⚠️ ไม่พบ OpenAI API Key ใน secrets")
+                            st.info("อัปโหลด OpenAI API Key ใน Streamlit Secrets")
+                        else:
+                            client = OpenAI(api_key=api_key)
+                            with st.spinner("🤔 ChatGPT กำลังคิด..."):
+                                response = client.chat.completions.create(
+                                    model="gpt-3.5-turbo",
+                                    messages=[
+                                        {"role": "system", "content": "คุณคือครูสอนภาษาจีนที่มีความเชี่ยวชาญ สามารถอธิบายคำศัพท์และวิธีใช้อย่างชัดเจน"},
+                                        {"role": "user", "content": question}
+                                    ]
+                                )
+                            st.session_state.ai_response = response.choices[0].message.content
+                    except ImportError:
+                        st.error("❌ ต้องติดตั้ง: pip install openai")
+                    except Exception as e:
+                        st.error(f"❌ เกิดข้อผิดพลาด: {str(e)}")
+            
+            with col_ai2:
+                if st.button("🔗 เปิด ChatGPT", use_container_width=True, key="chatgpt_link_btn"):
+                    import urllib.parse
+                    encoded_q = urllib.parse.quote(question)
+                    st.markdown(f"[→ เปิด ChatGPT](https://chat.openai.com/?q={encoded_q})", unsafe_allow_html=True)
+            
+            # Display AI response if exists
+            if st.session_state.ai_response:
+                st.markdown("---")
+                with st.expander("💬 คำตอบจาก ChatGPT", expanded=True):
+                    st.markdown(st.session_state.ai_response)
+                    
+                    # Copy button
+                    if st.button("📋 คัดลอก", key="copy_ai_response"):
+                        st.write("✅ คัดลอกแล้ว (ใช้ Ctrl+V วางข้อความ)")
 
 with tab2:
     if not filtered_df.empty:
