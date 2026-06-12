@@ -745,7 +745,7 @@ with tab2:
                 | pinyin_toneless2.str.contains(q2_toneless, na=False, regex=False)
                 | display_df['meaning'].astype(str).str.contains(q2, case=False, na=False, regex=False)
                 | display_df['hsk_level'].astype(str).str.contains(q2, case=False, na=False, regex=False)
-                | (id_str2 == q2)
+                | id_str2.str.contains(q2, na=False, regex=False)
             )
             display_df = display_df[mask2]
             st.caption(f"พบ **{len(display_df)}** คำ จากทั้งหมด {len(filtered_df)} คำ")
