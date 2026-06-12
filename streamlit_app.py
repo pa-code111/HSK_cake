@@ -2,11 +2,16 @@ import streamlit as st
 import pandas as pd
 from gtts import gTTS
 import io
-import base64
 import requests
 import urllib.parse
+import unicodedata
 
-st.set_page_config(page_title="HSK Flashcard AI", page_icon="🇨🇳", layout="centered")
+st.set_page_config(
+    page_title="HSK Flashcard AI",
+    page_icon="🇨🇳",
+    layout="centered",
+    initial_sidebar_state="expanded",  # โชว์แถบด้านซ้าย — กดลูกศร « ที่มุมบนซ้ายเพื่อซ่อน/เปิดได้ตลอด
+)
 
 # ลำดับเลเวล HSK ทั้งหมดที่รองรับ (HSK 3.0 รวม 7-9 เป็นระดับเดียว)
 HSK_LEVELS = ["1", "2", "3", "4", "5", "6", "7-9"]
@@ -153,19 +158,41 @@ def get_default_vocab():
 
 @st.cache_data
 def load_vocab():
+    """โหลดไฟล์คำศัพท์ที่แนบมากับโปรเจกต์ (ถ้ามี) — รองรับทั้ง .csv และ .xlsx
+    และทั้งคอลัมน์ชุดเก่า (simplified/pinyin/meaning/hsk_level)
+    และชุดใหม่ (id, level, word, pinyin, pos_zh, pos_en, trans_en, trans_th)"""
     from pathlib import Path
-    fname = "hsk_vocab - zh-th.csv"
     base = Path(__file__).parent
-    candidates = [base / fname, Path.cwd() / fname]
+    search_dirs = [base, Path.cwd()]
+    candidates = []
+    for d in search_dirs:
+        candidates += [
+            d / "hsk_vocab - zh-th.csv",
+            d / "hsk_vocab - zh-th.xlsx",
+            d / "hsk_vocab.csv",
+            d / "hsk_vocab.xlsx",
+        ]
+
     for p in candidates:
-        if p.exists():
-            try:
-                return pd.read_csv(p)
-            except Exception:
+        if not p.exists():
+            continue
+        try:
+            if p.suffix.lower() in (".xlsx", ".xls"):
+                df_raw = pd.read_excel(p)
+            else:
                 try:
-                    return pd.read_csv(p, encoding="utf-8", engine="python")
+                    df_raw = pd.read_csv(p)
                 except Exception:
-                    pass
+                    df_raw = pd.read_csv(p, encoding="utf-8", engine="python")
+        except Exception:
+            continue
+
+        mapped = map_vocab_columns(df_raw)
+        if mapped is not None:
+            return mapped
+        if {"simplified", "pinyin", "meaning", "hsk_level"}.issubset(df_raw.columns):
+            return df_raw
+
     return None
 
 
@@ -183,6 +210,16 @@ def normalize_level(level):
     if s in ("7", "8", "9", "7-9", "7-9级"):
         return "7-9"
     return s
+
+
+def strip_tones(text):
+    """ตัดวรรณยุกต์/เครื่องหมายกำกับเสียงออกจากพินอิน เช่น nǐ hǎo -> ni hao
+    และแปลง ü -> u เพื่อให้ค้นหาแบบไม่ต้องพิมพ์วรรณยุกต์ได้"""
+    if text is None:
+        return ""
+    text = str(text).replace("ü", "u").replace("Ü", "U")
+    decomposed = unicodedata.normalize("NFD", text)
+    return "".join(ch for ch in decomposed if not unicodedata.combining(ch)).lower()
 
 
 def free_translate(text, source="zh-CN", target="th"):
@@ -219,12 +256,21 @@ def get_hsk_color(level):
 # ─── CSS ──────────────────────────────────────────────────────────────────────
 flip_card_css = """
 <style>
+.flip-toggle-checkbox {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
 .flip-card {
     background-color: transparent;
     width: 100%;
     height: 360px;
     perspective: 1000px;
     margin: 16px 0;
+    display: block;
+    cursor: pointer;
 }
 .flip-card-inner {
     position: relative;
@@ -235,6 +281,7 @@ flip_card_css = """
     transform-style: preserve-3d;
 }
 .flip-card.flipped .flip-card-inner { transform: rotateY(180deg); }
+.flip-toggle-checkbox:checked + .flip-card .flip-card-inner { transform: rotateY(180deg); }
 .flip-card-front, .flip-card-back {
     position: absolute;
     width: 100%;
@@ -270,6 +317,19 @@ flip_card_css = """
     background: rgba(0,0,0,0.18);
     z-index: 10;
 }
+.id-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    font-family: monospace;
+    color: white;
+    background: rgba(0,0,0,0.18);
+    z-index: 10;
+}
 
 /* ── Level selector pills (ใช้สีเดียวกับ flashcard) ── */
 .level-pill-label {
@@ -298,6 +358,24 @@ div[data-testid="stSidebar"] .level-toggle div[data-testid="stCheckbox"] label {
     font-weight: bold;
     box-shadow: 0 2px 4px rgba(0,0,0,0.15);
 }
+
+/* ปุ่ม จำได้ / จำไม่ได้ ให้ใหญ่และกดง่ายขึ้น */
+.st-key-remember_btn button, .st-key-forget_btn button {
+    font-size: 22px !important;
+    font-weight: 800 !important;
+    padding: 1.1rem 0.5rem !important;
+    border-radius: 14px !important;
+}
+.st-key-remember_btn button {
+    background-color: rgba(76,175,80,0.15) !important;
+    border: 2px solid #4CAF50 !important;
+    color: #2e7d32 !important;
+}
+.st-key-forget_btn button {
+    background-color: rgba(244,67,54,0.12) !important;
+    border: 2px solid #e57373 !important;
+    color: #c62828 !important;
+}
 </style>
 """
 st.markdown(flip_card_css, unsafe_allow_html=True)
@@ -309,28 +387,64 @@ st.title("🇨🇳 HSK Flashcard Intelligence")
 
 # ─── Sidebar: data source ──────────────────────────────────────────────────────
 st.sidebar.header("แหล่งข้อมูล")
-uploaded = st.sidebar.file_uploader("อัปโหลดไฟล์ CSV (คอลัมน์: word, pinyin, trans_th, level)", type=["csv"])
+uploaded = st.sidebar.file_uploader(
+    "อัปโหลดไฟล์คำศัพท์ (CSV หรือ Excel .xlsx)",
+    type=["csv", "xlsx", "xls"],
+    help="รองรับคอลัมน์ชุดเก่า: word, pinyin, trans_th, level\n"
+         "หรือชุดใหม่: id, level, word, pinyin, pos_zh, pos_en, trans_en, trans_th",
+)
+
+
+def map_vocab_columns(df_raw: pd.DataFrame) -> pd.DataFrame:
+    """แปลงคอลัมน์จากไฟล์ผู้ใช้ (ชุดเก่า/ใหม่) ให้เป็นรูปแบบภายในของแอป"""
+    cols = set(df_raw.columns)
+
+    # ชุดใหม่: id, level, word, pinyin, pos_zh, pos_en, trans_en, trans_th
+    if {"word", "trans_th", "level"}.issubset(cols):
+        out = pd.DataFrame()
+        out["id"] = df_raw["id"] if "id" in cols else range(1, len(df_raw) + 1)
+        out["simplified"] = df_raw["word"]
+        out["pinyin"] = df_raw["pinyin"] if "pinyin" in cols else ""
+        out["meaning"] = df_raw["trans_th"]
+        out["hsk_level"] = df_raw["level"]
+        if "pos_th" in cols:
+            out["pos"] = df_raw["pos_th"]
+        elif "pos_en" in cols:
+            out["pos"] = df_raw["pos_en"]
+        return out
+
+    return None
+
+
 if uploaded is not None:
     try:
-        df_raw = pd.read_csv(uploaded)
-    except Exception:
-        try:
-            uploaded.seek(0)
-            df_raw = pd.read_csv(uploaded, encoding='utf-8', engine='python')
-        except Exception as e:
-            st.error(f"ไม่สามารถอ่านไฟล์ CSV ได้: {e}")
-            st.stop()
-    if 'word' in df_raw.columns and 'trans_th' in df_raw.columns and 'level' in df_raw.columns:
-        df = df_raw[['word', 'pinyin', 'trans_th', 'level']].copy()
-        df.columns = ['simplified', 'pinyin', 'meaning', 'hsk_level']
+        if uploaded.name.lower().endswith((".xlsx", ".xls")):
+            df_raw = pd.read_excel(uploaded)
+        else:
+            try:
+                df_raw = pd.read_csv(uploaded)
+            except Exception:
+                uploaded.seek(0)
+                df_raw = pd.read_csv(uploaded, encoding="utf-8", engine="python")
+    except Exception as e:
+        st.error(f"ไม่สามารถอ่านไฟล์ได้: {e}")
+        st.stop()
+
+    mapped = map_vocab_columns(df_raw)
+    if mapped is not None:
+        df = mapped
     else:
-        st.error("⚠️ CSV ต้องมีคอลัมน์: word, pinyin, trans_th, level")
+        st.error("⚠️ ไฟล์ต้องมีคอลัมน์อย่างน้อย: word, pinyin, trans_th, level (หรือ id, level, word, pinyin, ... trans_th)")
         st.stop()
 else:
     df = load_vocab()
     if df is None:
         df = get_default_vocab()
-        st.sidebar.info("📚 ใช้ข้อมูลตัวอย่าง HSK สำหรับสาธารณะ — สามารถอัปโหลดไฟล์ CSV ของคุณเองได้")
+        st.sidebar.info("📚 ใช้ข้อมูลตัวอย่าง HSK สำหรับสาธารณะ — สามารถอัปโหลดไฟล์ CSV/Excel ของคุณเองได้")
+
+if "id" not in df.columns:
+    df = df.reset_index(drop=True)
+    df["id"] = df.index + 1
 
 if df.empty:
     st.error("ไฟล์ CSV ว่างเปล่า — ตรวจสอบว่ายังมีแถวข้อมูลและคอลัมน์ที่ถูกต้อง")
@@ -339,14 +453,30 @@ if df.empty:
 # รวมเลเวล 7/8/9 ให้เป็น "7-9" เพื่อให้ตรงกับชุดตัวเลือกมาตรฐาน
 df['hsk_level'] = df['hsk_level'].apply(normalize_level)
 
-query = st.sidebar.text_input("ค้นหา (จีน/พินอิน/ความหมาย)")
+query = st.sidebar.text_input(
+    "🔍 ค้นหา (เลขที่ / คำจีน / พินอิน / คำแปล / เลเวล HSK)",
+    placeholder="เช่น 12, ni hao, ขอบคุณ, hsk 3",
+    help="พินอินไม่ต้องพิมพ์วรรณยุกต์ก็หาเจอ เช่น พิมพ์ 'ni' จะเจอ 'nǐ'",
+)
 if query:
+    q = query.strip()
+    q_toneless = strip_tones(q)
+
+    pinyin_toneless = df['pinyin'].apply(strip_tones)
+    id_str = df['id'].astype(str)
+    hsk_str = "hsk" + df['hsk_level'].astype(str).str.lower()
+
     mask = (
-        df['simplified'].astype(str).str.contains(query, case=False, na=False)
-        | df['pinyin'].astype(str).str.contains(query, case=False, na=False)
-        | df['meaning'].astype(str).str.contains(query, case=False, na=False)
+        df['simplified'].astype(str).str.contains(q, case=False, na=False, regex=False)
+        | df['pinyin'].astype(str).str.contains(q, case=False, na=False, regex=False)
+        | pinyin_toneless.str.contains(q_toneless, na=False, regex=False)
+        | df['meaning'].astype(str).str.contains(q, case=False, na=False, regex=False)
+        | df['hsk_level'].astype(str).str.contains(q, case=False, na=False, regex=False)
+        | (id_str == q)
+        | hsk_str.str.contains(q_toneless.replace(" ", ""), na=False, regex=False)
     )
     df = df[mask]
+    st.sidebar.caption(f"พบ {len(df)} คำ ที่ตรงกับ \"{query}\"")
 
 
 # ─── Sidebar: level selector (สีตรงกับ flashcard, ครบ 1-6 และ 7-9) ────────────
@@ -457,18 +587,14 @@ with tab1:
             st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
             st.session_state.card_flipped = False
             st.session_state.audio_played = False
+            st.session_state.reveal_side = False
             st.session_state.ai_response = None
             st.session_state.ai_response_word = None
 
         # Auto-play audio on first load of a word
         if not st.session_state.audio_played:
             audio_fp = speak_word(st.session_state.current_word['simplified'])
-            b64_audio = base64.b64encode(audio_fp.getvalue()).decode()
-            st.markdown(f"""
-            <audio autoplay>
-                <source src="data:audio/mp3;base64,{b64_audio}" type="audio/mpeg">
-            </audio>
-            """, unsafe_allow_html=True)
+            st.audio(audio_fp.getvalue(), format="audio/mp3", autoplay=True)
             st.session_state.audio_played = True
 
         col_left, col_right = st.columns([0.6, 0.4], gap="large")
@@ -478,53 +604,49 @@ with tab1:
             colors = get_hsk_color(st.session_state.current_word['hsk_level'])
 
             flip_card_html = f"""
-            <div class="flip-card {flipped_class}">
+            <input type="checkbox" id="flip-toggle" class="flip-toggle-checkbox">
+            <label for="flip-toggle" class="flip-card {flipped_class}">
                 <div class="flip-card-inner">
                     <div class="flip-card-front" style="background: linear-gradient({colors['gradient']});">
+                        <div class="id-badge">#{st.session_state.current_word['id']}</div>
                         <div class="hsk-badge">HSK {st.session_state.current_word['hsk_level']}</div>
                         <div>
                             {st.session_state.current_word['simplified']}
-                            <div class="click-hint">กดปุ่ม "เปิดคำตอบ" ด้านล่าง</div>
+                            <div class="click-hint">แตะที่การ์ดเพื่อเปิดคำตอบ</div>
                         </div>
                     </div>
                     <div class="flip-card-back" style="background: linear-gradient({colors['gradient']});">
+                        <div class="id-badge">#{st.session_state.current_word['id']}</div>
                         <div class="hsk-badge">HSK {st.session_state.current_word['hsk_level']}</div>
                         <div class="pinyin-text">{st.session_state.current_word['pinyin']}</div>
                         <div class="meaning-text">{st.session_state.current_word['meaning']}</div>
-                        <div class="click-hint">กดปุ่ม "เปิดคำตอบ" เพื่อพลิกกลับ</div>
+                        <div class="click-hint">แตะที่การ์ดเพื่อพลิกกลับ</div>
                     </div>
                 </div>
-            </div>
+            </label>
             """
             st.markdown(flip_card_html, unsafe_allow_html=True)
 
-            # ── ปุ่มควบคุมหลัก: ชุดเดียว ไม่ซ้ำกัน ──
-            b1, b2, b3, b4 = st.columns(4)
-            with b1:
-                if st.button("👁️ เปิดคำตอบ", use_container_width=True, key="flip_btn"):
-                    st.session_state.card_flipped = not st.session_state.card_flipped
-                    st.rerun()
-            with b2:
-                if st.button("🔊 ฟังเสียงอีก", use_container_width=True, key="replay_audio_btn"):
-                    audio_fp = speak_word(st.session_state.current_word['simplified'])
-                    b64_audio = base64.b64encode(audio_fp.getvalue()).decode()
-                    st.markdown(f"""
-                    <audio autoplay>
-                        <source src="data:audio/mp3;base64,{b64_audio}" type="audio/mpeg">
-                    </audio>
-                    """, unsafe_allow_html=True)
-            with b3:
+            # ── ปุ่มควบคุมหลัก ──
+            r1, r2 = st.columns(2)
+            with r1:
                 if st.button("✅ จำได้", use_container_width=True, key="remember_btn"):
                     next_word("remembered")
                     st.rerun()
-            with b4:
+            with r2:
                 if st.button("❌ จำไม่ได้", use_container_width=True, key="forget_btn"):
                     next_word("forgotten")
                     st.rerun()
 
-            if st.button("⏭️ ข้ามคำนี้", use_container_width=True, key="skip_btn"):
-                next_word(None)
-                st.rerun()
+            b1, b2 = st.columns(2)
+            with b1:
+                if st.button("🔊 ฟังเสียงอีก", use_container_width=True, key="replay_audio_btn"):
+                    audio_fp = speak_word(st.session_state.current_word['simplified'])
+                    st.audio(audio_fp.getvalue(), format="audio/mp3", autoplay=True)
+            with b2:
+                if st.button("⏭️ ข้ามคำนี้", use_container_width=True, key="skip_btn"):
+                    next_word(None)
+                    st.rerun()
 
             st.markdown("---")
             total_played = len(st.session_state.remembered) + len(st.session_state.forgotten)
@@ -538,11 +660,30 @@ with tab1:
 
         with col_right:
             st.subheader("🤖 ผู้ช่วย AI")
+
+            if 'reveal_side' not in st.session_state:
+                st.session_state.reveal_side = False
+
+            head_col, toggle_col = st.columns([0.7, 0.3])
+            with head_col:
+                st.markdown("**คำปัจจุบัน:**")
+            with toggle_col:
+                btn_label = "🙈 ซ่อน" if st.session_state.reveal_side else "👁️ แสดงเฉลย"
+                if st.button(btn_label, use_container_width=True, key="toggle_reveal_btn"):
+                    st.session_state.reveal_side = not st.session_state.reveal_side
+                    st.rerun()
+
+            if st.session_state.reveal_side:
+                pinyin_display = st.session_state.current_word['pinyin']
+                meaning_display = st.session_state.current_word['meaning']
+            else:
+                pinyin_display = "*" * max(len(str(st.session_state.current_word['pinyin'])), 4)
+                meaning_display = "*" * max(len(str(st.session_state.current_word['meaning'])), 4)
+
             st.markdown(f"""
-            **คำปัจจุบัน:**
             - 🇨🇳 {st.session_state.current_word['simplified']}
-            - 📖 {st.session_state.current_word['pinyin']}
-            - 🇹🇭 {st.session_state.current_word['meaning']}
+            - 📖 {pinyin_display}
+            - 🇹🇭 {meaning_display}
             """)
 
             default_q = (
@@ -590,8 +731,11 @@ with tab1:
 
 with tab2:
     if not filtered_df.empty:
-        st.dataframe(filtered_df[['simplified', 'pinyin', 'meaning', 'hsk_level']], use_container_width=True)
-        csv = filtered_df.to_csv(index=False).encode('utf-8')
+        display_cols = ['id', 'simplified', 'pinyin', 'meaning', 'hsk_level']
+        if 'pos' in filtered_df.columns:
+            display_cols.append('pos')
+        st.dataframe(filtered_df[display_cols], use_container_width=True, hide_index=True)
+        csv = filtered_df[display_cols].to_csv(index=False).encode('utf-8')
         st.download_button("⬇️ ดาวน์โหลด CSV", data=csv, file_name='hsk_filtered.csv', mime='text/csv')
     else:
         st.info("ไม่มีคำศัพท์ในเลเวลที่เลือก")
