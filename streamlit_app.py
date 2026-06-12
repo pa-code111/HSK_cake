@@ -6,8 +6,49 @@ import io
 st.set_page_config(page_title="HSK Flashcard AI", page_icon="🇨🇳", layout="centered")
 
 @st.cache_data
+def get_default_vocab():
+    """ข้อมูลคำศัพท์ HSK ตัวอย่าง (เมื่อไม่มี CSV จากผู้ใช้)"""
+    return pd.DataFrame([
+        {"simplified": "你", "pinyin": "nǐ", "meaning": "คุณ", "hsk_level": "1"},
+        {"simplified": "好", "pinyin": "hǎo", "meaning": "ดี", "hsk_level": "1"},
+        {"simplified": "谢谢", "pinyin": "xièxie", "meaning": "ขอบคุณ", "hsk_level": "1"},
+        {"simplified": "是", "pinyin": "shì", "meaning": "เป็น", "hsk_level": "1"},
+        {"simplified": "不", "pinyin": "bù", "meaning": "ไม่", "hsk_level": "1"},
+        {"simplified": "我", "pinyin": "wǒ", "meaning": "ฉัน", "hsk_level": "1"},
+        {"simplified": "吃", "pinyin": "chī", "meaning": "กิน", "hsk_level": "1"},
+        {"simplified": "喝", "pinyin": "hē", "meaning": "ดื่ม", "hsk_level": "1"},
+        {"simplified": "水", "pinyin": "shuǐ", "meaning": "น้ำ", "hsk_level": "1"},
+        {"simplified": "朋友", "pinyin": "péngyou", "meaning": "เพื่อน", "hsk_level": "2"},
+        {"simplified": "学习", "pinyin": "xuéxí", "meaning": "เรียน", "hsk_level": "2"},
+        {"simplified": "工作", "pinyin": "gōngzuò", "meaning": "ทำงาน", "hsk_level": "2"},
+        {"simplified": "家", "pinyin": "jiā", "meaning": "บ้าน", "hsk_level": "1"},
+        {"simplified": "学校", "pinyin": "xuéxiào", "meaning": "โรงเรียน", "hsk_level": "2"},
+        {"simplified": "天气", "pinyin": "tiānqì", "meaning": "สภาพอากาศ", "hsk_level": "2"},
+        {"simplified": "开心", "pinyin": "kāixīn", "meaning": "มีความสุข", "hsk_level": "2"},
+        {"simplified": "重要", "pinyin": "zhòngyào", "meaning": "สำคัญ", "hsk_level": "3"},
+        {"simplified": "机会", "pinyin": "jīhuì", "meaning": "โอกาส", "hsk_level": "3"},
+        {"simplified": "发展", "pinyin": "fāzhǎn", "meaning": "พัฒนา", "hsk_level": "3"},
+        {"simplified": "技术", "pinyin": "jìshù", "meaning": "เทคโนโลยี", "hsk_level": "3"},
+    ])
+
+@st.cache_data
 def load_vocab():
-    return pd.read_csv("hsk_vocab - zh-th.csv")
+    from pathlib import Path
+    fname = "hsk_vocab - zh-th.csv"
+    # Try a few sensible locations: same folder as this file, then current working dir
+    base = Path(__file__).parent
+    candidates = [base / fname, Path.cwd() / fname]
+    for p in candidates:
+        if p.exists():
+            try:
+                return pd.read_csv(p)
+            except Exception:
+                try:
+                    return pd.read_csv(p, encoding="utf-8", engine="python")
+                except Exception:
+                    pass
+    # Not found on disk; return default vocab
+    return None
 
 def speak_word(text):
     tts = gTTS(text, lang='zh-cn')
@@ -28,9 +69,11 @@ if uploaded is not None:
         df = pd.read_csv(uploaded, encoding='utf-8', engine='python')
 else:
     df = load_vocab()
-
-if df is None or df.empty:
-    st.error("ไม่มีข้อมูลในไฟล์ CSV ที่โหลดได้")
+    if df is None:
+        df = get_default_vocab()
+        st.sidebar.info("📚 ใช้ข้อมูลตัวอย่าง HSK สำหรับสาธารณะ — สามารถอัปโหลดไฟล์ CSV ของคุณเองได้")
+if df.empty:
+    st.error("ไฟล์ CSV ว่างเปล่า — ตรวจสอบว่ายังมีแถวข้อมูลและคอลัมน์ที่ถูกต้อง")
     st.stop()
 
 query = st.sidebar.text_input("ค้นหา (จีน/พินอิน/ความหมาย)")
