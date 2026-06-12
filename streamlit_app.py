@@ -271,16 +271,27 @@ st.markdown("""
 .pinyin-text { font-size:32px; margin-bottom:12px; }
 .meaning-text { font-size:26px; }
 .click-hint { font-size:13px; opacity:0.75; margin-top:8px; }
-.hsk-badge {
-    position:absolute; top:12px;
-    padding:5px 12px; border-radius:20px; font-size:12px; font-weight:700;
-    color:white; background:rgba(0,0,0,0.22); z-index:10; letter-spacing:0.5px;
-}
-.id-badge {
-    position:absolute; top:12px;
+..flip-card-front .id-badge {
+    position:absolute; top:12px; left:14px;
     padding:5px 12px; border-radius:20px; font-size:12px;
     font-weight:700; font-family:monospace; color:white;
     background:rgba(0,0,0,0.22); z-index:10;
+}
+.flip-card-front .hsk-badge {
+    position:absolute; top:12px; right:14px;
+    padding:5px 12px; border-radius:20px; font-size:12px; font-weight:700;
+    color:white; background:rgba(0,0,0,0.22); z-index:10; letter-spacing:0.5px;
+}
+.flip-card-back .id-badge {
+    position:absolute; top:12px; right:14px;
+    padding:5px 12px; border-radius:20px; font-size:12px;
+    font-weight:700; font-family:monospace; color:white;
+    background:rgba(0,0,0,0.22); z-index:10;
+}
+.flip-card-back .hsk-badge {
+    position:absolute; top:12px; left:14px;
+    padding:5px 12px; border-radius:20px; font-size:12px; font-weight:700;
+    color:white; background:rgba(0,0,0,0.22); z-index:10; letter-spacing:0.5px;
 }
 .flip-card-front .id-badge { left:14px; }
 .flip-card-front .hsk-badge { right:14px; }
