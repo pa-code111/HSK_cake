@@ -705,14 +705,24 @@ with tab1:
 
 # ══════════════════════════════════════════════════════════════════════════════
 with tab2:
-    # ── Realtime search bar ──
+    # ── Realtime search bar (rerun ทันทีทุก keystroke ไม่ต้องกด Enter) ──
     st.markdown("### 🔍 ค้นหาคำศัพท์")
-    list_search = st.text_input(
+
+    if "list_search_val" not in st.session_state:
+        st.session_state.list_search_val = ""
+
+    def _on_search_change():
+        st.session_state.list_search_val = st.session_state._list_search_box
+
+    st.text_input(
         "พิมพ์เพื่อกรองทันที",
         placeholder="คำจีน / พินอิน / คำแปล / เลเวล...",
         label_visibility="collapsed",
-        key="list_search_input",
+        key="_list_search_box",
+        value=st.session_state.list_search_val,
+        on_change=_on_search_change,
     )
+    list_search = st.session_state.list_search_val
 
     if not filtered_df.empty:
         display_df = filtered_df.copy()
