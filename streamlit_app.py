@@ -5,6 +5,7 @@ import io
 import requests
 import urllib.parse
 import unicodedata
+from datetime import datetime
 
 st.set_page_config(
     page_title="HSK Flashcard AI",
@@ -534,7 +535,7 @@ if st.sidebar.button(ai_label, key="ai_panel_toggle", use_container_width=True):
 
 
 # ─── Tabs ─────────────────────────────────────────────────────────────────────
-tab1, tab2 = st.tabs(["🎴 Flashcard (สุ่มทาย)", "📖 คำศัพท์ทั้งหมด (List)"])
+tab1, tab2, tab3 = st.tabs(["🎴 Flashcard (สุ่มทาย)", "📖 คำศัพท์ทั้งหมด (List)", "📋 ประวัติการเล่น"])
 
 # ══════════════════════════════════════════════════════════════════════════════
 with tab1:
@@ -551,6 +552,7 @@ with tab1:
             ('audio_played', False),
             ('remembered', []),
             ('forgotten', []),
+            ('play_history', []),
             ('ai_response', None),
             ('ai_response_word', None),
             ('reveal_side', False),
@@ -559,7 +561,8 @@ with tab1:
                 st.session_state[key] = default
 
         def next_word(feedback=None):
-            word = st.session_state.current_word['simplified']
+            w = st.session_state.current_word
+            word = w['simplified']
             if feedback == "remembered":
                 if word not in st.session_state.remembered:
                     st.session_state.remembered.append(word)
@@ -570,6 +573,17 @@ with tab1:
                     st.session_state.forgotten.append(word)
                 if word in st.session_state.remembered:
                     st.session_state.remembered.remove(word)
+            # บันทึกประวัติ (เฉพาะที่กด จำได้/ไม่ได้)
+            if feedback in ("remembered", "forgotten"):
+                st.session_state.play_history.append({
+                    "เวลา": datetime.now().strftime("%H:%M:%S"),
+                    "id": w['id'],
+                    "คำจีน": word,
+                    "พินอิน": w['pinyin'],
+                    "คำแปล": w['meaning'],
+                    "HSK": w['hsk_level'],
+                    "ผล": "✅ จำได้" if feedback == "remembered" else "❌ จำไม่ได้",
+                })
             st.session_state.current_word = filtered_df.sample().iloc[0]
             st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
             st.session_state.card_flipped = False
@@ -712,7 +726,7 @@ with tab1:
 
 # ══════════════════════════════════════════════════════════════════════════════
 with tab2:
-    # ── Realtime search bar (rerun ทันทีทุก keystroke ไม่ต้องกด Enter) ──
+    # ── Realtime search bar ──
     st.markdown("### 🔍 ค้นหาคำศัพท์")
 
     if "list_search_val" not in st.session_state:
@@ -723,7 +737,7 @@ with tab2:
 
     st.text_input(
         "พิมพ์เพื่อกรองทันที",
-        placeholder="คำจีน / พินอิน / คำแปล / เลเวล...",
+        placeholder="คำจีน / พินอิน / คำแปล / id / เลเวล...",
         label_visibility="collapsed",
         key="_list_search_box",
         value=st.session_state.list_search_val,
@@ -781,5 +795,134 @@ with tab2:
             file_name='hsk_filtered.csv',
             mime='text/csv',
         )
+
+        # ── ตัวช่วยแปล (ซ่อนใน expander) ──
+        st.markdown("---")
+        with st.expander("🤖 ตัวช่วยแปลคำศัพท์", expanded=False):
+            if "tab2_translate_result" not in st.session_state:
+                st.session_state.tab2_translate_result = None
+            if "tab2_translate_word" not in st.session_state:
+                st.session_state.tab2_translate_word = ""
+
+            tr_col1, tr_col2 = st.columns([0.7, 0.3])
+            with tr_col1:
+                translate_input = st.text_input(
+                    "คำที่ต้องการแปล",
+                    placeholder="พิมพ์คำจีน เช่น 你好",
+                    key="tab2_translate_input",
+                )
+            with tr_col2:
+                st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                do_translate = st.button("🔍 แปล", use_container_width=True, key="tab2_translate_btn")
+
+            # ถ้ามีคำในช่องค้นหาและเป็นคำจีน ให้แนะนำ
+            if list_search and any('一' <= c <= '鿿' for c in list_search):
+                st.caption(f"💡 กำลังค้นหา "{list_search}" อยู่ — กดเพื่อใช้คำนี้แปลเลย")
+                if st.button(f"ใช้ "{list_search}" แปล", key="tab2_use_search_word"):
+                    with st.spinner("กำลังแปล..."):
+                        result = free_translate(list_search, "zh-CN", "th")
+                    st.session_state.tab2_translate_result = result or "⚠️ แปลไม่สำเร็จ"
+                    st.session_state.tab2_translate_word = list_search
+
+            if do_translate and translate_input.strip():
+                with st.spinner("กำลังแปล..."):
+                    result = free_translate(translate_input.strip(), "zh-CN", "th")
+                st.session_state.tab2_translate_result = result or "⚠️ แปลไม่สำเร็จ"
+                st.session_state.tab2_translate_word = translate_input.strip()
+
+            if st.session_state.tab2_translate_result:
+                word_disp = st.session_state.tab2_translate_word
+                res_disp  = st.session_state.tab2_translate_result
+                st.success(f"**{word_disp}** → {res_disp}")
+                encoded_w = urllib.parse.quote(word_disp)
+                encoded_q2 = urllib.parse.quote(f"อธิบายความหมายและวิธีใช้ {word_disp} พร้อมตัวอย่างประโยค")
+                st.markdown(
+                    f"🔗 เปิดใน: "
+                    f"[Google แปลภาษา](https://translate.google.com/?sl=zh-CN&tl=th&text={encoded_w}&op=translate) · "
+                    f"[ChatGPT](https://chat.openai.com/?q={encoded_q2})"
+                )
     else:
         st.info("ไม่มีคำศัพท์ในเลเวลที่เลือก")
+
+# ══════════════════════════════════════════════════════════════════════════════
+with tab3:
+    st.markdown("### 📋 ประวัติการเล่น Flashcard")
+
+    history = st.session_state.get("play_history", [])
+
+    if not history:
+        st.info("ยังไม่มีประวัติ — กลับไปเล่น Flashcard แล้วกดจำได้/จำไม่ได้ก่อนนะครับ")
+    else:
+        hist_df = pd.DataFrame(history[::-1])  # ล่าสุดขึ้นก่อน
+
+        # ── สรุปด่วน ──
+        total = len(hist_df)
+        n_ok  = (hist_df["ผล"] == "✅ จำได้").sum()
+        n_no  = (hist_df["ผล"] == "❌ จำไม่ได้").sum()
+        pct   = int(n_ok / total * 100) if total else 0
+
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("📊 ทั้งหมด", total)
+        m2.metric("✅ จำได้", n_ok)
+        m3.metric("❌ จำไม่ได้", n_no)
+        m4.metric("🎯 แม่นยำ", f"{pct}%")
+
+        st.markdown("---")
+
+        # ── ตัวกรอง ──
+        fc1, fc2 = st.columns(2)
+        with fc1:
+            filter_result = st.selectbox(
+                "กรองตามผล",
+                ["ทั้งหมด", "✅ จำได้", "❌ จำไม่ได้"],
+                key="hist_filter_result",
+            )
+        with fc2:
+            filter_hsk = st.multiselect(
+                "กรองตาม HSK",
+                options=sorted(hist_df["HSK"].unique()),
+                default=[],
+                placeholder="ทุกเลเวล",
+                key="hist_filter_hsk",
+            )
+
+        disp = hist_df.copy()
+        if filter_result != "ทั้งหมด":
+            disp = disp[disp["ผล"] == filter_result]
+        if filter_hsk:
+            disp = disp[disp["HSK"].isin(filter_hsk)]
+
+        st.caption(f"แสดง {len(disp)} รายการ")
+
+        st.dataframe(
+            disp,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "เวลา":   st.column_config.TextColumn("🕐 เวลา",   width=80),
+                "id":     st.column_config.NumberColumn("#",        width=55),
+                "คำจีน":  st.column_config.TextColumn("คำจีน",     width=80),
+                "พินอิน": st.column_config.TextColumn("พินอิน",    width=130),
+                "คำแปล":  st.column_config.TextColumn("คำแปล",     width="medium"),
+                "HSK":    st.column_config.TextColumn("HSK",        width=55),
+                "ผล":     st.column_config.TextColumn("ผล",         width=100),
+            },
+            height=min(60 + len(disp) * 35, 500),
+        )
+
+        # ── ปุ่มล้างประวัติ ──
+        st.markdown("---")
+        cc1, cc2 = st.columns([0.3, 0.7])
+        with cc1:
+            if st.button("🗑️ ล้างประวัติทั้งหมด", key="clear_history_btn"):
+                st.session_state.play_history = []
+                st.rerun()
+        with cc2:
+            csv_h = pd.DataFrame(history).to_csv(index=False).encode("utf-8")
+            st.download_button(
+                "⬇️ ดาวน์โหลดประวัติ CSV",
+                data=csv_h,
+                file_name="hsk_history.csv",
+                mime="text/csv",
+                key="dl_history_btn",
+            )
