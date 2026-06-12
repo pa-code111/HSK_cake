@@ -770,7 +770,12 @@ with tab2:
         if 'pos' in display_df.columns:
             display_cols.append('pos')
 
+        # เพิ่มคอลัมน์ checkbox "เลือก" สำหรับกดแปล
+        display_df_sel = display_df[display_cols].copy()
+        display_df_sel.insert(0, "🔍 แปล", False)
+
         col_cfg = {
+            "🔍 แปล":    st.column_config.CheckboxColumn("🔍 แปล", width=60),
             "id":        st.column_config.NumberColumn("#",        width=50),
             "simplified":st.column_config.TextColumn("คำจีน",     width=90),
             "pinyin":    st.column_config.TextColumn("พินอิน",    width=140),
@@ -780,13 +785,17 @@ with tab2:
         if 'pos' in display_df.columns:
             col_cfg["pos"] = st.column_config.TextColumn("ชนิดคำ", width=100)
 
-        st.dataframe(
-            display_df[display_cols],
+        edited = st.data_editor(
+            display_df_sel,
             use_container_width=True,
             hide_index=True,
             column_config=col_cfg,
-            height=min(50 + len(display_df) * 35, 600),
+            height=min(50 + len(display_df_sel) * 35, 600),
+            key="tab2_data_editor",
         )
+
+        # ดึงแถวที่ถูกติ๊ก checkbox
+        selected_rows = edited[edited["🔍 แปล"] == True]
 
         csv = display_df[display_cols].to_csv(index=False).encode('utf-8')
         st.download_button(
@@ -796,33 +805,43 @@ with tab2:
             mime='text/csv',
         )
 
-        # ── ตัวช่วยแปล (ซ่อนใน expander) ──
+        # ── ตัวช่วยแปล (ซ่อนใน expander, เปิดอัตโนมัติถ้ามีคำถูกเลือก) ──
         st.markdown("---")
-        with st.expander("🤖 ตัวช่วยแปลคำศัพท์", expanded=False):
+        has_selected = len(selected_rows) > 0
+        with st.expander("🤖 ตัวช่วยแปลคำศัพท์", expanded=has_selected):
             if "tab2_translate_result" not in st.session_state:
                 st.session_state.tab2_translate_result = None
             if "tab2_translate_word" not in st.session_state:
                 st.session_state.tab2_translate_word = ""
 
+            # ถ้ามีแถวถูกเลือกจากตาราง แสดงปุ่มแปลแต่ละคำ
+            if has_selected:
+                st.markdown("**คำที่เลือกจากตาราง:**")
+                for _, row in selected_rows.iterrows():
+                    word = row['simplified']
+                    pinyin = row['pinyin']
+                    meaning = row['meaning']
+                    c1, c2 = st.columns([0.7, 0.3])
+                    with c1:
+                        st.markdown(f"**{word}** ({pinyin}) — {meaning}")
+                    with c2:
+                        if st.button(f"แปล {word}", key=f"sel_translate_{word}_{row['id']}"):
+                            with st.spinner("กำลังแปล..."):
+                                result = free_translate(word, "zh-CN", "th")
+                            st.session_state.tab2_translate_result = result or "⚠️ แปลไม่สำเร็จ"
+                            st.session_state.tab2_translate_word = word
+                st.markdown("---")
+
             tr_col1, tr_col2 = st.columns([0.7, 0.3])
             with tr_col1:
                 translate_input = st.text_input(
-                    "คำที่ต้องการแปล",
-                    placeholder="พิมพ์คำจีน เช่น 你好",
+                    "หรือพิมพ์คำจีนเองที่นี่",
+                    placeholder="เช่น 你好",
                     key="tab2_translate_input",
                 )
             with tr_col2:
                 st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
                 do_translate = st.button("🔍 แปล", use_container_width=True, key="tab2_translate_btn")
-
-            # ถ้ามีคำในช่องค้นหาและเป็นคำจีน ให้แนะนำ
-            if list_search and any('一' <= c <= '鿿' for c in list_search):
-                st.caption(f'💡 กำลังค้นหา "{list_search}" อยู่ — กดเพื่อใช้คำนี้แปลเลย')
-                if st.button(f'ใช้ "{list_search}" แปล', key='tab2_use_search_word'):
-                    with st.spinner("กำลังแปล..."):
-                        result = free_translate(list_search, "zh-CN", "th")
-                    st.session_state.tab2_translate_result = result or "⚠️ แปลไม่สำเร็จ"
-                    st.session_state.tab2_translate_word = list_search
 
             if do_translate and translate_input.strip():
                 with st.spinner("กำลังแปล..."):
@@ -926,4 +945,3 @@ with tab3:
                 mime="text/csv",
                 key="dl_history_btn",
             )
-            
