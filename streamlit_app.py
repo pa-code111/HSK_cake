@@ -817,8 +817,8 @@ with tab2:
 
             # ถ้ามีคำในช่องค้นหาและเป็นคำจีน ให้แนะนำ
             if list_search and any('一' <= c <= '鿿' for c in list_search):
-                st.caption(f"💡 กำลังค้นหา "{list_search}" อยู่ — กดเพื่อใช้คำนี้แปลเลย")
-                if st.button(f"ใช้ "{list_search}" แปล", key="tab2_use_search_word"):
+                st.caption(f'💡 กำลังค้นหา "{list_search}" อยู่ — กดเพื่อใช้คำนี้แปลเลย')
+                if st.button(f'ใช้ "{list_search}" แปล', key='tab2_use_search_word'):
                     with st.spinner("กำลังแปล..."):
                         result = free_translate(list_search, "zh-CN", "th")
                     st.session_state.tab2_translate_result = result or "⚠️ แปลไม่สำเร็จ"
@@ -926,3 +926,4 @@ with tab3:
                 mime="text/csv",
                 key="dl_history_btn",
             )
+            
