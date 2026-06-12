@@ -163,21 +163,22 @@ def load_vocab():
     for p in candidates:
         if not p.exists():
             continue
-        try:
-            if p.suffix.lower() in (".xlsx", ".xls"):
-                df_raw = pd.read_excel(p)
-            else:
-                try:
-                    df_raw = pd.read_csv(p)
-                except Exception:
-                    df_raw = pd.read_csv(p, encoding="utf-8", engine="python")
-        except Exception:
-            continue
-        mapped = map_vocab_columns(df_raw)
-        if mapped is not None:
-            return mapped
-        if {"simplified", "pinyin", "meaning", "hsk_level"}.issubset(df_raw.columns):
-            return df_raw
+        for skip in [0, 1]:
+            try:
+                if p.suffix.lower() in (".xlsx", ".xls"):
+                    df_raw = pd.read_excel(p, skiprows=skip)
+                else:
+                    try:
+                        df_raw = pd.read_csv(p, skiprows=skip)
+                    except Exception:
+                        df_raw = pd.read_csv(p, skiprows=skip, encoding="utf-8", engine="python")
+            except Exception:
+                continue
+            mapped = map_vocab_columns(df_raw)
+            if mapped is not None:
+                return mapped
+            if {"simplified", "pinyin", "meaning", "hsk_level"}.issubset(df_raw.columns):
+                return df_raw
     return None
 
 
@@ -372,23 +373,29 @@ def map_vocab_columns(df_raw):
 
 
 if uploaded is not None:
-    try:
-        if uploaded.name.lower().endswith((".xlsx", ".xls")):
-            df_raw = pd.read_excel(uploaded)
-        else:
-            try:
-                df_raw = pd.read_csv(uploaded)
-            except Exception:
+    df = None
+    for skip in [0, 1]:
+        try:
+            if uploaded.name.lower().endswith((".xlsx", ".xls")):
+                df_raw = pd.read_excel(uploaded, skiprows=skip)
+            else:
                 uploaded.seek(0)
-                df_raw = pd.read_csv(uploaded, encoding="utf-8", engine="python")
-    except Exception as e:
-        st.error(f"ไม่สามารถอ่านไฟล์ได้: {e}")
-        st.stop()
-    mapped = map_vocab_columns(df_raw)
-    if mapped is not None:
-        df = mapped
-    else:
-        st.error("⚠️ ไฟล์ต้องมีคอลัมน์: word, pinyin, trans_th, level")
+                try:
+                    df_raw = pd.read_csv(uploaded, skiprows=skip)
+                except Exception:
+                    uploaded.seek(0)
+                    df_raw = pd.read_csv(uploaded, skiprows=skip, encoding="utf-8", engine="python")
+        except Exception as e:
+            continue
+        mapped = map_vocab_columns(df_raw)
+        if mapped is not None:
+            df = mapped
+            break
+        if {"simplified", "pinyin", "meaning", "hsk_level"}.issubset(df_raw.columns):
+            df = df_raw
+            break
+    if df is None:
+        st.error("⚠️ ไม่พบคอลัมน์ที่รองรับ — ต้องมี: word, pinyin, trans_th, level (หรือ simplified, pinyin, meaning, hsk_level)")
         st.stop()
 else:
     df = load_vocab()
