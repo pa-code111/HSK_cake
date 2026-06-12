@@ -6,6 +6,7 @@ import requests
 import urllib.parse
 import unicodedata
 from datetime import datetime
+from functools import lru_cache
 
 st.set_page_config(
     page_title="HSK Flashcard AI",
@@ -206,19 +207,25 @@ def strip_tones(text):
     return "".join(ch for ch in decomposed if not unicodedata.combining(ch)).lower()
 
 
-def free_translate(text, source="zh-CN", target="th"):
+@lru_cache(maxsize=512)
+def free_translate_cached(text, source="zh-CN", target="th"):
+    """Cached translation to avoid repeated API calls"""
     try:
         url = "https://api.mymemory.translated.net/get"
         params = {"q": text, "langpair": f"{source}|{target}"}
-        r = requests.get(url, params=params, timeout=8)
+        r = requests.get(url, params=params, timeout=5)
         r.raise_for_status()
         data = r.json()
         translated = data.get("responseData", {}).get("translatedText")
         if translated:
             return translated
         return None
-    except Exception:
+    except Exception as e:
         return None
+
+
+def free_translate(text, source="zh-CN", target="th"):
+    return free_translate_cached(text, source, target)
 
 
 def get_hsk_color(level):
@@ -265,16 +272,20 @@ st.markdown("""
 .meaning-text { font-size:26px; }
 .click-hint { font-size:13px; opacity:0.75; margin-top:8px; }
 .hsk-badge {
-    position:absolute; top:12px; right:14px;
+    position:absolute; top:12px;
     padding:5px 12px; border-radius:20px; font-size:12px; font-weight:700;
     color:white; background:rgba(0,0,0,0.22); z-index:10; letter-spacing:0.5px;
 }
 .id-badge {
-    position:absolute; top:12px; left:14px;
+    position:absolute; top:12px;
     padding:5px 12px; border-radius:20px; font-size:12px;
     font-weight:700; font-family:monospace; color:white;
     background:rgba(0,0,0,0.22); z-index:10;
 }
+.flip-card-front .id-badge { left:14px; }
+.flip-card-front .hsk-badge { right:14px; }
+.flip-card-back .id-badge { right:14px; }
+.flip-card-back .hsk-badge { left:14px; }
 
 /* ── Level pills in sidebar ── */
 .lvl-grid {
@@ -448,12 +459,8 @@ if "level_filter" not in st.session_state:
     st.session_state.level_filter = {lvl: True for lvl in HSK_LEVELS}
 
 levels_with_data = set(df['hsk_level'].astype(str).unique())
-
-# Count per level
 level_counts = df.groupby('hsk_level').size().to_dict()
 
-# Render pill grid — 2 columns, click = toggle checkbox hidden underneath
-# We use st.columns inside sidebar for the grid
 cols_per_row = 2
 rows = [HSK_LEVELS[i:i+cols_per_row] for i in range(0, len(HSK_LEVELS), cols_per_row)]
 
@@ -465,7 +472,6 @@ for row_lvls in rows:
         is_on = st.session_state.level_filter.get(lvl, True)
         count = level_counts.get(lvl, 0)
 
-        # Pill display classes
         if not has_data:
             extra_class = "lvl-pill-nodataoff"
         elif not is_on:
@@ -478,10 +484,8 @@ for row_lvls in rows:
         text_color = c['fg'] if is_on and has_data else "#666"
         label_text = "7–9" if lvl == "7-9" else lvl
 
-        # Show pill as a button
         pill_label = f"HSK {label_text}"
         with col:
-            # Render visual pill via markdown (non-interactive display)
             st.markdown(f"""
             <div class="lvl-pill {extra_class}" style="{bg_style} {border_style} color:{text_color}; pointer-events:none;">
                 <div class="lvl-pill-num">{label_text}</div>
@@ -489,7 +493,6 @@ for row_lvls in rows:
                 <div class="lvl-pill-count">{count} คำ</div>
             </div>
             """, unsafe_allow_html=True)
-            # Real toggle underneath via checkbox (hidden label)
             if has_data:
                 new_val = st.checkbox(
                     pill_label,
@@ -513,7 +516,6 @@ else:
 # ─── Sidebar: settings ───────────────────────────────────────────────────────
 st.sidebar.markdown('<div class="sidebar-section-title">⚙️ การตั้งค่า</div>', unsafe_allow_html=True)
 
-# Audio toggle
 if "audio_enabled" not in st.session_state:
     st.session_state.audio_enabled = True
 
@@ -523,7 +525,6 @@ if st.sidebar.button(audio_label, key="audio_toggle_btn", use_container_width=Tr
     st.session_state.audio_enabled = not st.session_state.audio_enabled
     st.rerun()
 
-# AI panel toggle
 if "ai_panel_open" not in st.session_state:
     st.session_state.ai_panel_open = True
 
@@ -542,7 +543,6 @@ with tab1:
     if filtered_df.empty:
         st.warning("⚠️ ไม่มีคำศัพท์ในเลเวลที่เลือก — กรุณาเลือกเลเวล HSK อย่างน้อย 1 ระดับทางด้านซ้าย")
     else:
-        # Init session state
         if 'current_word' not in st.session_state or st.session_state.get('current_word_level') not in selected_levels:
             st.session_state.current_word = filtered_df.sample().iloc[0]
             st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
@@ -573,10 +573,11 @@ with tab1:
                     st.session_state.forgotten.append(word)
                 if word in st.session_state.remembered:
                     st.session_state.remembered.remove(word)
-            # บันทึกประวัติ (เฉพาะที่กด จำได้/ไม่ได้)
+            
             if feedback in ("remembered", "forgotten"):
+                timestamp = datetime.now().strftime("%H:%M:%S")
                 st.session_state.play_history.append({
-                    "เวลา": datetime.now().strftime("%H:%M:%S"),
+                    "เวลา": timestamp,
                     "id": w['id'],
                     "คำจีน": word,
                     "พินอิน": w['pinyin'],
@@ -584,6 +585,7 @@ with tab1:
                     "HSK": w['hsk_level'],
                     "ผล": "✅ จำได้" if feedback == "remembered" else "❌ จำไม่ได้",
                 })
+            
             st.session_state.current_word = filtered_df.sample().iloc[0]
             st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
             st.session_state.card_flipped = False
@@ -594,9 +596,12 @@ with tab1:
 
         # Auto-play audio only if enabled and not yet played for this word
         if st.session_state.audio_enabled and not st.session_state.audio_played:
-            audio_fp = speak_word(st.session_state.current_word['simplified'])
-            st.audio(audio_fp.getvalue(), format="audio/mp3", autoplay=True)
-            st.session_state.audio_played = True
+            try:
+                audio_fp = speak_word(st.session_state.current_word['simplified'])
+                st.audio(audio_fp.getvalue(), format="audio/mp3", autoplay=True)
+                st.session_state.audio_played = True
+            except Exception as e:
+                st.caption("⚠️ ไม่สามารถเล่นเสียงอัตโนมัติได้ — กด 🔊 ฟังเสียง เพื่อเล่นด้วยตนเอง")
 
         # ── Layout ──
         if st.session_state.ai_panel_open:
@@ -646,14 +651,16 @@ with tab1:
             b1, b2, b3 = st.columns(3)
             with b1:
                 if st.button("🔊 ฟังเสียง", use_container_width=True, key="replay_audio_btn"):
-                    audio_fp = speak_word(st.session_state.current_word['simplified'])
-                    st.audio(audio_fp.getvalue(), format="audio/mp3", autoplay=True)
+                    try:
+                        audio_fp = speak_word(st.session_state.current_word['simplified'])
+                        st.audio(audio_fp.getvalue(), format="audio/mp3", autoplay=True)
+                    except Exception:
+                        st.error("เสียงไม่พร้อม")
             with b2:
                 if st.button("⏭️ ข้ามคำนี้", use_container_width=True, key="skip_btn"):
                     next_word(None)
                     st.rerun()
             with b3:
-                # Inline audio toggle shortcut on card area too
                 audio_shortcut = "🔇 ปิดเสียง" if st.session_state.audio_enabled else "🔊 เปิดเสียง"
                 if st.button(audio_shortcut, use_container_width=True, key="audio_toggle_card"):
                     st.session_state.audio_enabled = not st.session_state.audio_enabled
@@ -726,14 +733,17 @@ with tab1:
 
 # ══════════════════════════════════════════════════════════════════════════════
 with tab2:
-    # ── Realtime search bar ──
     st.markdown("### 🔍 ค้นหาคำศัพท์")
 
     if "list_search_val" not in st.session_state:
         st.session_state.list_search_val = ""
+    
+    if "tab2_page" not in st.session_state:
+        st.session_state.tab2_page = 1
 
     def _on_search_change():
         st.session_state.list_search_val = st.session_state._list_search_box
+        st.session_state.tab2_page = 1  # Reset page on search
 
     st.text_input(
         "พิมพ์เพื่อกรองทันที",
@@ -762,16 +772,54 @@ with tab2:
                 | id_str2.str.contains(q2, na=False, regex=False)
             )
             display_df = display_df[mask2]
-            st.caption(f"พบ **{len(display_df)}** คำ จากทั้งหมด {len(filtered_df)} คำ")
-        else:
-            st.caption(f"แสดงทั้งหมด **{len(display_df)}** คำ")
+
+        st.caption(f"พบ **{len(display_df)}** คำ จากทั้งหมด {len(filtered_df)} คำ")
+
+        # ═══ PAGINATION ═══
+        PAGE_SIZE = 100
+        total_pages = (len(display_df) + PAGE_SIZE - 1) // PAGE_SIZE
+        
+        if st.session_state.tab2_page > total_pages and total_pages > 0:
+            st.session_state.tab2_page = 1
+        
+        current_page = st.session_state.tab2_page if total_pages > 0 else 1
+        start_idx = (current_page - 1) * PAGE_SIZE
+        end_idx = start_idx + PAGE_SIZE
+        paginated_df = display_df.iloc[start_idx:end_idx]
+        
+        # Page navigation
+        col_page1, col_page2, col_page3 = st.columns([0.2, 0.6, 0.2])
+        with col_page1:
+            if current_page > 1:
+                if st.button("⬅️", use_container_width=True, key="prev_page"):
+                    st.session_state.tab2_page -= 1
+                    st.rerun()
+            else:
+                st.markdown("")
+        with col_page2:
+            if total_pages > 0:
+                st.markdown(
+                    f"<div style='text-align:center; padding:8px;'>"
+                    f"<b>หน้า {current_page} / {total_pages}</b><br>"
+                    f"<small>({start_idx + 1}–{min(end_idx, len(display_df))} จาก {len(display_df)} คำ)</small>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+        with col_page3:
+            if current_page < total_pages:
+                if st.button("➡️", use_container_width=True, key="next_page"):
+                    st.session_state.tab2_page += 1
+                    st.rerun()
+            else:
+                st.markdown("")
+        
+        st.markdown("---")
 
         display_cols = ['id', 'simplified', 'pinyin', 'meaning', 'hsk_level']
-        if 'pos' in display_df.columns:
+        if 'pos' in paginated_df.columns:
             display_cols.append('pos')
 
-        # เพิ่มคอลัมน์ checkbox "เลือก" สำหรับกดแปล
-        display_df_sel = display_df[display_cols].copy()
+        display_df_sel = paginated_df[display_cols].copy()
         display_df_sel.insert(0, "🔍 แปล", False)
 
         col_cfg = {
@@ -782,7 +830,7 @@ with tab2:
             "meaning":   st.column_config.TextColumn("คำแปล (ไทย)", width="medium"),
             "hsk_level": st.column_config.TextColumn("HSK",       width=60),
         }
-        if 'pos' in display_df.columns:
+        if 'pos' in paginated_df.columns:
             col_cfg["pos"] = st.column_config.TextColumn("ชนิดคำ", width=100)
 
         edited = st.data_editor(
@@ -791,21 +839,19 @@ with tab2:
             hide_index=True,
             column_config=col_cfg,
             height=min(50 + len(display_df_sel) * 35, 600),
-            key="tab2_data_editor",
+            key=f"tab2_data_editor_page_{current_page}",
         )
 
-        # ดึงแถวที่ถูกติ๊ก checkbox
         selected_rows = edited[edited["🔍 แปล"] == True]
 
-        csv = display_df[display_cols].to_csv(index=False).encode('utf-8')
+        csv = paginated_df[display_cols].to_csv(index=False).encode('utf-8')
         st.download_button(
-            "⬇️ ดาวน์โหลด CSV (ที่กรองแล้ว)",
+            f"⬇️ ดาวน์โหลด CSV (หน้า {current_page})",
             data=csv,
-            file_name='hsk_filtered.csv',
+            file_name=f'hsk_filtered_p{current_page}.csv',
             mime='text/csv',
         )
 
-        # ── ตัวช่วยแปล (ซ่อนใน expander, เปิดอัตโนมัติถ้ามีคำถูกเลือก) ──
         st.markdown("---")
         has_selected = len(selected_rows) > 0
         with st.expander("🤖 ตัวช่วยแปลคำศัพท์", expanded=has_selected):
@@ -814,7 +860,6 @@ with tab2:
             if "tab2_translate_word" not in st.session_state:
                 st.session_state.tab2_translate_word = ""
 
-            # ถ้ามีแถวถูกเลือกจากตาราง แสดงปุ่มแปลแต่ละคำ
             if has_selected:
                 st.markdown("**คำที่เลือกจากตาราง:**")
                 for _, row in selected_rows.iterrows():
@@ -872,9 +917,8 @@ with tab3:
     if not history:
         st.info("ยังไม่มีประวัติ — กลับไปเล่น Flashcard แล้วกดจำได้/จำไม่ได้ก่อนนะครับ")
     else:
-        hist_df = pd.DataFrame(history[::-1])  # ล่าสุดขึ้นก่อน
+        hist_df = pd.DataFrame(history[::-1])
 
-        # ── สรุปด่วน ──
         total = len(hist_df)
         n_ok  = (hist_df["ผล"] == "✅ จำได้").sum()
         n_no  = (hist_df["ผล"] == "❌ จำไม่ได้").sum()
@@ -888,7 +932,6 @@ with tab3:
 
         st.markdown("---")
 
-        # ── ตัวกรอง ──
         fc1, fc2 = st.columns(2)
         with fc1:
             filter_result = st.selectbox(
@@ -929,7 +972,6 @@ with tab3:
             height=min(60 + len(disp) * 35, 500),
         )
 
-        # ── ปุ่มล้างประวัติ ──
         st.markdown("---")
         cc1, cc2 = st.columns([0.3, 0.7])
         with cc1:
