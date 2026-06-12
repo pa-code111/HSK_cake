@@ -202,8 +202,15 @@ if query:
     )
     df = df[mask]
 
-# เรียงลำดับ HSK Level อย่างถูกต้อง (ตัวเลข)
-available_levels = sorted(df['hsk_level'].astype(str).unique(), key=lambda x: float(x))
+# เรียงลำดับ HSK Level อย่างถูกต้อง (รองรับ 1,2,3...6,7-9)
+def parse_level(level_str):
+    """ดึงตัวเลขแรกจาก level string (เช่น '7-9' -> 7, '3' -> 3)"""
+    try:
+        return float(level_str.split('-')[0])
+    except:
+        return float('inf')
+
+available_levels = sorted(df['hsk_level'].astype(str).unique(), key=parse_level)
 selected_levels = st.sidebar.multiselect("เลือกเลเวล HSK:", options=available_levels, default=available_levels)
 if selected_levels:
     filtered_df = df[df['hsk_level'].astype(str).isin(selected_levels)]
