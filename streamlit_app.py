@@ -268,62 +268,6 @@ def get_hsk_color(level):
 
 st.markdown(flip_card_css, unsafe_allow_html=True)
 
-# CSS for colored HSK level multiselect tags
-custom_css = """
-<style>
-/* Color tags for HSK levels */
-[data-testid="multiSelectOptionContainer"] {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 8px !important;
-}
-
-/* Individual tag colors */
-.stMultiSelect [data-baseweb="tag"] {
-    background-color: #667eea;
-    border-radius: 20px;
-    padding: 8px 12px;
-}
-
-/* Level 1 - Green */
-.stMultiSelect [data-testid="multiSelectOptionContainer"] span:has-text("1") {
-    background-color: #4CAF50 !important;
-}
-
-/* Level 2 - Light Green */
-.stMultiSelect [data-testid="multiSelectOptionContainer"] span:has-text("2") {
-    background-color: #8BC34A !important;
-}
-
-/* Level 3 - Yellow */
-.stMultiSelect [data-testid="multiSelectOptionContainer"] span:has-text("3") {
-    background-color: #FFC107 !important;
-}
-
-/* Level 4 - Orange */
-.stMultiSelect [data-testid="multiSelectOptionContainer"] span:has-text("4") {
-    background-color: #FF9800 !important;
-}
-
-/* Level 5 - Red */
-.stMultiSelect [data-testid="multiSelectOptionContainer"] span:has-text("5") {
-    background-color: #FF5722 !important;
-}
-
-/* Level 6 - Purple */
-.stMultiSelect [data-testid="multiSelectOptionContainer"] span:has-text("6") {
-    background-color: #9C27B0 !important;
-}
-
-/* Level 7-9 - Gold */
-.stMultiSelect [data-testid="multiSelectOptionContainer"] span:has-text("7-9") {
-    background-color: #FFD700 !important;
-}
-</style>
-"""
-
-st.markdown(custom_css, unsafe_allow_html=True)
-
 st.title("🇨🇳 HSK Flashcard Intelligence")
 
 st.sidebar.header("แหล่งข้อมูล")
@@ -373,6 +317,27 @@ def parse_level(level_str):
 
 available_levels = sorted(df['hsk_level'].astype(str).unique(), key=parse_level)
 selected_levels = st.sidebar.multiselect("เลือกเลเวล HSK:", options=available_levels, default=available_levels)
+
+# Display colored HSK level badges
+if selected_levels:
+    st.sidebar.markdown("**📊 เลเวลที่เลือก:**")
+    badges_html = '<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;">'
+    for level in sorted(selected_levels, key=parse_level):
+        color_info = get_hsk_color(level)
+        badges_html += f'''<span style="
+            background: linear-gradient({color_info['gradient']});
+            color: {color_info['fg']};
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-weight: bold;
+            display: inline-block;
+            font-size: 14px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+            Level {level} ✓
+        </span>'''
+    badges_html += '</div>'
+    st.sidebar.markdown(badges_html, unsafe_allow_html=True)
+
 if selected_levels:
     filtered_df = df[df['hsk_level'].astype(str).isin(selected_levels)]
 else:
@@ -423,7 +388,7 @@ with tab1:
             
             with flip_placeholder.container():
                 flip_card_html = f"""
-                <div class="{card_id} {flipped_class}" style="cursor: default;">
+                <div class="{card_id} {flipped_class}" style="cursor: default; position: relative;">
                     <div class="flip-card-inner">
                         <div class="flip-card-front" style="background: linear-gradient({colors['gradient']}); color: {colors['fg']};">
                             <div class="hsk-badge hsk-level-{st.session_state.current_word['hsk_level']}">
@@ -431,7 +396,7 @@ with tab1:
                             </div>
                             <div>
                                 {st.session_state.current_word['simplified']}
-                                <div class="click-hint">👆 กดปุ่มด้านล่างเพื่อดำเนินการ</div>
+                                <div class="click-hint">กดปุ่มด้านล่าง</div>
                             </div>
                         </div>
                         <div class="flip-card-back" style="background: linear-gradient({colors['gradient']}); color: {colors['fg']};">
@@ -440,31 +405,15 @@ with tab1:
                             </div>
                             <div class="pinyin-text">{st.session_state.current_word['pinyin']}</div>
                             <div class="meaning-text">{st.session_state.current_word['meaning']}</div>
-                            <div class="click-hint">👆 กดปุ่มด้านล่างเพื่อดำเนินการ</div>
+                            <div class="click-hint">กดปุ่มด้านล่าง</div>
                         </div>
                     </div>
                 </div>
                 """
                 st.markdown(flip_card_html, unsafe_allow_html=True)
             
+            # Feedback section - จำได้/ไม่ได้ อยู่ด้านบน
             st.markdown("---")
-            
-            # Display stats
-            total_played = len(st.session_state.remembered) + len(st.session_state.forgotten)
-            col_stat1, col_stat2, col_stat3 = st.columns(3)
-            
-            with col_stat1:
-                st.metric("📊 เล่นไปแล้ว", total_played)
-            
-            with col_stat2:
-                st.metric("✅ จำได้", len(st.session_state.remembered), delta_color="off")
-            
-            with col_stat3:
-                st.metric("❌ จำไม่ได้", len(st.session_state.forgotten), delta_color="off")
-            
-            st.markdown("---")
-            
-            # Feedback section with styled buttons
             col_feedback1, col_feedback2 = st.columns(2)
             
             with col_feedback1:
@@ -494,8 +443,6 @@ with tab1:
                     st.session_state.card_flipped = False
                     st.session_state.audio_played = False
                     st.rerun()
-                    st.session_state.audio_played = False
-                    st.rerun()
             
             st.markdown("---")
             
@@ -506,109 +453,87 @@ with tab1:
             
             st.markdown("---")
             
-            # Control buttons
-            col_btn1, col_btn2, col_btn3 = st.columns(3)
-            with col_btn1:
-                if st.button("🔊 เล่นเสียงอีก", use_container_width=True):
-                    audio_fp = speak_word(st.session_state.current_word['simplified'])
-                    # Use autoplay audio element
-                    audio_base64 = audio_fp.getvalue()
-                    import base64
-                    b64_audio = base64.b64encode(audio_base64).decode()
-                    st.markdown(f"""
-                    <audio autoplay>
-                        <source src="data:audio/mp3;base64,{b64_audio}" type="audio/mpeg">
-                    </audio>
-                    """, unsafe_allow_html=True)
+            # Display stats - สถิติอยู่ด้านล่าง
+            total_played = len(st.session_state.remembered) + len(st.session_state.forgotten)
+            col_stat1, col_stat2, col_stat3 = st.columns(3)
             
-            with col_btn2:
-                if st.button("🔄 คำใหม่", use_container_width=True):
-                    st.session_state.current_word = filtered_df.sample().iloc[0]
-                    st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
-                    st.session_state.card_flipped = False
-                    st.session_state.audio_played = False
-                    st.session_state.last_feedback = None
-                    st.rerun()
+            with col_stat1:
+                st.metric("📊 เล่นไปแล้ว", total_played)
             
-            with col_btn3:
-                if st.button("⏭️ ข้ามไป", use_container_width=True):
-                    st.session_state.current_word = filtered_df.sample().iloc[0]
-                    st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
-                    st.session_state.card_flipped = False
-                    st.session_state.audio_played = False
-                    st.session_state.last_feedback = None
-                    st.rerun()
+            with col_stat2:
+                st.metric("✅ จำได้", len(st.session_state.remembered), delta_color="off")
+            
+            with col_stat3:
+                st.metric("❌ จำไม่ได้", len(st.session_state.forgotten), delta_color="off")
         
         with col_right:
             # Get colors for current card
             colors = get_hsk_color(st.session_state.current_word['hsk_level'])
             
-            st.subheader("📊 สถิติการเรียน")
+            st.subheader("⚡ ควบคุม")
             
-            # Display stats with colors
-            remembered_count = len(st.session_state.remembered)
-            forgotten_count = len(st.session_state.forgotten)
-            total_count = remembered_count + forgotten_count
+            # Control buttons - ด้านขวา
+            st.markdown("---")
             
-            if total_count > 0:
-                success_rate = int((remembered_count / total_count) * 100)
-            else:
-                success_rate = 0
+            col_right_btn1, col_right_btn2, col_right_btn3 = st.columns(3)
             
-            col_stat1, col_stat2 = st.columns(2)
-            with col_stat1:
-                st.markdown(f"""
-                <div style="background-color: #d4edda; padding: 15px; border-radius: 10px; text-align: center; border-left: 5px solid {colors['bg']};">
-                    <h3 style="color: #155724; margin: 0;">✅ จำได้</h3>
-                    <p style="color: #155724; font-size: 24px; margin: 10px 0 0 0;"><b>{remembered_count}</b></p>
-                </div>
-                """, unsafe_allow_html=True)
+            with col_right_btn1:
+                if st.button("✅ จำได้", use_container_width=True, key="right_remembered_btn"):
+                    word_simplified = st.session_state.current_word['simplified']
+                    if word_simplified not in st.session_state.remembered:
+                        st.session_state.remembered.append(word_simplified)
+                    if word_simplified in st.session_state.forgotten:
+                        st.session_state.forgotten.remove(word_simplified)
+                    st.session_state.current_word = filtered_df.sample().iloc[0]
+                    st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
+                    st.session_state.card_flipped = False
+                    st.session_state.audio_played = False
+                    st.rerun()
             
-            with col_stat2:
-                st.markdown(f"""
-                <div style="background-color: #f8d7da; padding: 15px; border-radius: 10px; text-align: center; border-left: 5px solid {colors['bg']};">
-                    <h3 style="color: #721c24; margin: 0;">❌ จำไม่ได้</h3>
-                    <p style="color: #721c24; font-size: 24px; margin: 10px 0 0 0;"><b>{forgotten_count}</b></p>
-                </div>
-                """, unsafe_allow_html=True)
+            with col_right_btn2:
+                if st.button("❌ ไม่ได้", use_container_width=True, key="right_forgotten_btn"):
+                    word_simplified = st.session_state.current_word['simplified']
+                    if word_simplified not in st.session_state.forgotten:
+                        st.session_state.forgotten.append(word_simplified)
+                    if word_simplified in st.session_state.remembered:
+                        st.session_state.remembered.remove(word_simplified)
+                    st.session_state.current_word = filtered_df.sample().iloc[0]
+                    st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
+                    st.session_state.card_flipped = False
+                    st.session_state.audio_played = False
+                    st.rerun()
             
-            st.markdown(f"""
-            <div style="background-color: #cfe2ff; padding: 15px; border-radius: 10px; text-align: center; margin-top: 10px; border-left: 5px solid {colors['bg']};">
-                <h4 style="color: #084298; margin: 0;">📈 อัตราสำเร็จ</h4>
-                <p style="color: #084298; font-size: 28px; margin: 10px 0 0 0;"><b>{success_rate}%</b></p>
-            </div>
-            """, unsafe_allow_html=True)
+            with col_right_btn3:
+                if st.button("⏭️ ข้าม", use_container_width=True, key="skip_btn"):
+                    st.session_state.current_word = filtered_df.sample().iloc[0]
+                    st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
+                    st.session_state.card_flipped = False
+                    st.session_state.audio_played = False
+                    st.session_state.last_feedback = None
+                    st.rerun()
             
             st.markdown("---")
-            st.markdown(f"""
-            <div style="background-color: {colors['bg']}; color: {colors['fg']}; padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 10px;">
-                <b>HSK Level {st.session_state.current_word['hsk_level']}</b>
-            </div>
-            """, unsafe_allow_html=True)
             
+            # Play sound button
+            if st.button("🔊 เล่นเสียงอีก", use_container_width=True):
+                audio_fp = speak_word(st.session_state.current_word['simplified'])
+                # Use autoplay audio element
+                audio_base64 = audio_fp.getvalue()
+                import base64
+                b64_audio = base64.b64encode(audio_base64).decode()
+                st.markdown(f"""
+                <audio autoplay>
+                    <source src="data:audio/mp3;base64,{b64_audio}" type="audio/mpeg">
+                </audio>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("---")
             st.write("**💡 ข้อมูลคำศัพท์:**")
             st.markdown(f"""
             - 🇨🇳 คำจีน: {st.session_state.current_word['simplified']}
             - 📖 พินอิน: {st.session_state.current_word['pinyin']}
             - 🇹🇭 ความหมาย: {st.session_state.current_word['meaning']}
             """)
-            
-            st.markdown("---")
-            st.write("**🤖 ถามเอไอ:**")
-            question = st.text_area("เขียนคำถาม:", 
-                                   value=f"อธิบายความหมายและวิธีใช้คำว่า {st.session_state.current_word['simplified']} ({st.session_state.current_word['pinyin']}) ในภาษาจีน",
-                                   height=80)
-            
-            if st.button("🔗 เปิด ChatGPT"):
-                import urllib.parse
-                encoded_q = urllib.parse.quote(question)
-                st.markdown(f"[เปิด ChatGPT →](https://chat.openai.com/?q={encoded_q})")
-            
-            if st.button("🌐 ค้นหา Google"):
-                import urllib.parse
-                search_query = f"{st.session_state.current_word['simplified']} {st.session_state.current_word['pinyin']}"
-                encoded_q = urllib.parse.quote(search_query)
-                st.markdown(f"[ค้นหา →](https://www.google.com/search?q={encoded_q})")
 
 with tab2:
     if not filtered_df.empty:
