@@ -44,12 +44,18 @@ def get_default_vocab():
     ])
 
 
-def speak_word(text):
+@st.cache_data(show_spinner=False)
+def speak_word_bytes(text):
     tts = gTTS(text, lang='zh-cn')
     fp = io.BytesIO()
     tts.write_to_fp(fp)
-    fp.seek(0)
-    return fp
+    return fp.getvalue()
+
+
+def speak_word(text):
+    # Returns a fresh BytesIO each call; the underlying bytes are cached so
+    # repeated words skip the network round-trip to gTTS.
+    return io.BytesIO(speak_word_bytes(text))
 
 
 def normalize_level(level):
@@ -94,6 +100,7 @@ def get_chatgpt_translate_url(text):
     return f"https://chat.openai.com/?q={urllib.parse.quote(prompt)}"
 
 
+@lru_cache(maxsize=16)
 def get_hsk_color(level):
     level_str = str(level)
     color_map = {
@@ -251,6 +258,20 @@ if df.empty:
 
 df['hsk_level'] = df['hsk_level'].apply(normalize_level)
 
+# Pre-compute toneless pinyin once. Both the sidebar search and the tab2
+# search do fuzzy (tone-insensitive) pinyin matching on every keystroke
+# rerun; computing this column once here avoids re-running strip_tones()
+# over every row on every rerun.
+_pinyin_col_for_precompute = None
+for _candidate in ("pinyin",):
+    if _candidate in df.columns:
+        _pinyin_col_for_precompute = _candidate
+        break
+if _pinyin_col_for_precompute:
+    df['_pinyin_toneless'] = df[_pinyin_col_for_precompute].apply(strip_tones)
+else:
+    df['_pinyin_toneless'] = ""
+
 # ─── Initialize column mapping ────────────────────────────────────────────────
 if "col_mapping" not in st.session_state:
     st.session_state.col_mapping = {
@@ -346,7 +367,7 @@ if query:
     if st.session_state.col_display_toggle.get("word") and word_col:
         mask = mask | (df[word_col].astype(str).str.contains(query, case=False, na=False, regex=False))
     if st.session_state.col_display_toggle.get("pinyin") and pinyin_col:
-        mask = mask | (df[pinyin_col].apply(strip_tones).str.contains(q_toneless, na=False, regex=False))
+        mask = mask | (df['_pinyin_toneless'].str.contains(q_toneless, na=False, regex=False))
     if st.session_state.col_display_toggle.get("trans_th") and trans_th_col:
         mask = mask | (df[trans_th_col].astype(str).str.contains(query, case=False, na=False, regex=False))
     if st.session_state.col_display_toggle.get("trans_en") and st.session_state.col_mapping.get("trans_en"):
@@ -718,8 +739,8 @@ with tab2:
             for col_key, actual_col in st.session_state.col_mapping.items():
                 if actual_col and actual_col in vocab_display_df.columns:
                     if col_key == "pinyin":
-                        # fuzzy pinyin ไม่ต้องมีวรรณยุกต์
-                        vmask = vmask | (vocab_display_df[actual_col].apply(strip_tones).str.contains(vq_toneless, na=False, regex=False))
+                        # fuzzy pinyin ไม่ต้องมีวรรณยุกต์ (ใช้ column ที่ precompute ไว้แล้ว)
+                        vmask = vmask | (vocab_display_df['_pinyin_toneless'].str.contains(vq_toneless, na=False, regex=False))
                     else:
                         vmask = vmask | (vocab_display_df[actual_col].astype(str).str.contains(vq, case=False, na=False, regex=False))
             
@@ -780,7 +801,7 @@ with tab2:
             for col_key in col_order:
                 if st.session_state.col_display_toggle.get(col_key) and st.session_state.col_mapping.get(col_key):
                     disp_cols.append(st.session_state.col_mapping[col_key])
-            show_cols = disp_cols if disp_cols else list(page_df.columns)
+            show_cols = disp_cols if disp_cols else [c for c in page_df.columns if c != '_pinyin_toneless']
             
             # dataframe แบบเลือก row ได้ → คลิกแล้วแปลคำได้เลย
             selection = st.dataframe(
