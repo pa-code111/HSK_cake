@@ -21,26 +21,26 @@ HSK_LEVELS = ["1", "2", "3", "4", "5", "6", "7-9"]
 @st.cache_data
 def get_default_vocab():
     return pd.DataFrame([
-        {"id": 1, "hsk_level": "1", "word": "你", "pinyin": "nǐ", "trans_th": "คุณ", "trans_en": "you"},
-        {"id": 2, "hsk_level": "1", "word": "好", "pinyin": "hǎo", "trans_th": "ดี", "trans_en": "good"},
-        {"id": 3, "hsk_level": "1", "word": "谢谢", "pinyin": "xièxie", "trans_th": "ขอบคุณ", "trans_en": "thank you"},
-        {"id": 4, "hsk_level": "1", "word": "是", "pinyin": "shì", "trans_th": "เป็น", "trans_en": "to be"},
-        {"id": 5, "hsk_level": "1", "word": "不", "pinyin": "bù", "trans_th": "ไม่", "trans_en": "not"},
-        {"id": 6, "hsk_level": "1", "word": "我", "pinyin": "wǒ", "trans_th": "ฉัน", "trans_en": "I"},
-        {"id": 7, "hsk_level": "1", "word": "吃", "pinyin": "chī", "trans_th": "กิน", "trans_en": "to eat"},
-        {"id": 8, "hsk_level": "1", "word": "喝", "pinyin": "hē", "trans_th": "ดื่ม", "trans_en": "to drink"},
-        {"id": 9, "hsk_level": "1", "word": "水", "pinyin": "shuǐ", "trans_th": "น้ำ", "trans_en": "water"},
-        {"id": 10, "hsk_level": "1", "word": "家", "pinyin": "jiā", "trans_th": "บ้าน", "trans_en": "home"},
-        {"id": 11, "hsk_level": "1", "word": "有", "pinyin": "yǒu", "trans_th": "มี", "trans_en": "to have"},
-        {"id": 12, "hsk_level": "1", "word": "在", "pinyin": "zài", "trans_th": "อยู่", "trans_en": "at/in"},
-        {"id": 13, "hsk_level": "1", "word": "他", "pinyin": "tā", "trans_th": "เขา", "trans_en": "he"},
-        {"id": 14, "hsk_level": "1", "word": "她", "pinyin": "tā", "trans_th": "เธอ", "trans_en": "she"},
-        {"id": 15, "hsk_level": "1", "word": "一", "pinyin": "yī", "trans_th": "หนึ่ง", "trans_en": "one"},
-        {"id": 16, "hsk_level": "1", "word": "二", "pinyin": "èr", "trans_th": "สอง", "trans_en": "two"},
-        {"id": 17, "hsk_level": "1", "word": "三", "pinyin": "sān", "trans_th": "สาม", "trans_en": "three"},
-        {"id": 18, "hsk_level": "1", "word": "大", "pinyin": "dà", "trans_th": "ใหญ่", "trans_en": "big"},
-        {"id": 19, "hsk_level": "1", "word": "xiǎo", "pinyin": "xiǎo", "trans_th": "เล็ก", "trans_en": "small"},
-        {"id": 20, "hsk_level": "1", "word": "多", "pinyin": "duō", "trans_th": "มาก", "trans_en": "many"},
+        {"id": 1, "hsk_level": "1", "word": "你", "pinyin": "nǐ", "trans_th": "คุณ", "trans_en": "you", "pos_zh": "代", "pos_en": "pron.", "pos_th": "สรรพนาม"},
+        {"id": 2, "hsk_level": "1", "word": "好", "pinyin": "hǎo", "trans_th": "ดี", "trans_en": "good", "pos_zh": "形", "pos_en": "adj.", "pos_th": "คุณศัพท์"},
+        {"id": 3, "hsk_level": "1", "word": "谢谢", "pinyin": "xièxie", "trans_th": "ขอบคุณ", "trans_en": "thank you", "pos_zh": "动", "pos_en": "v.", "pos_th": "กริยา"},
+        {"id": 4, "hsk_level": "1", "word": "是", "pinyin": "shì", "trans_th": "เป็น", "trans_en": "to be", "pos_zh": "动", "pos_en": "v.", "pos_th": "กริยา"},
+        {"id": 5, "hsk_level": "1", "word": "不", "pinyin": "bù", "trans_th": "ไม่", "trans_en": "not", "pos_zh": "副", "pos_en": "adv.", "pos_th": "กริยาวิเศษณ์"},
+        {"id": 6, "hsk_level": "1", "word": "我", "pinyin": "wǒ", "trans_th": "ฉัน", "trans_en": "I", "pos_zh": "代", "pos_en": "pron.", "pos_th": "สรรพนาม"},
+        {"id": 7, "hsk_level": "1", "word": "吃", "pinyin": "chī", "trans_th": "กิน", "trans_en": "to eat", "pos_zh": "动", "pos_en": "v.", "pos_th": "กริยา"},
+        {"id": 8, "hsk_level": "1", "word": "喝", "pinyin": "hē", "trans_th": "ดื่ม", "trans_en": "to drink", "pos_zh": "动", "pos_en": "v.", "pos_th": "กริยา"},
+        {"id": 9, "hsk_level": "1", "word": "水", "pinyin": "shuǐ", "trans_th": "น้ำ", "trans_en": "water", "pos_zh": "名", "pos_en": "n.", "pos_th": "คำนาม"},
+        {"id": 10, "hsk_level": "1", "word": "家", "pinyin": "jiā", "trans_th": "บ้าน", "trans_en": "home", "pos_zh": "名", "pos_en": "n.", "pos_th": "คำนาม"},
+        {"id": 11, "hsk_level": "1", "word": "有", "pinyin": "yǒu", "trans_th": "มี", "trans_en": "to have", "pos_zh": "动", "pos_en": "v.", "pos_th": "กริยา"},
+        {"id": 12, "hsk_level": "1", "word": "在", "pinyin": "zài", "trans_th": "อยู่", "trans_en": "at/in", "pos_zh": "动", "pos_en": "v.", "pos_th": "กริยา"},
+        {"id": 13, "hsk_level": "1", "word": "他", "pinyin": "tā", "trans_th": "เขา", "trans_en": "he", "pos_zh": "代", "pos_en": "pron.", "pos_th": "สรรพนาม"},
+        {"id": 14, "hsk_level": "1", "word": "她", "pinyin": "tā", "trans_th": "เธอ", "trans_en": "she", "pos_zh": "代", "pos_en": "pron.", "pos_th": "สรรพนาม"},
+        {"id": 15, "hsk_level": "1", "word": "一", "pinyin": "yī", "trans_th": "หนึ่ง", "trans_en": "one", "pos_zh": "数", "pos_en": "num.", "pos_th": "ตัวเลข"},
+        {"id": 16, "hsk_level": "1", "word": "二", "pinyin": "èr", "trans_th": "สอง", "trans_en": "two", "pos_zh": "数", "pos_en": "num.", "pos_th": "ตัวเลข"},
+        {"id": 17, "hsk_level": "1", "word": "三", "pinyin": "sān", "trans_th": "สาม", "trans_en": "three", "pos_zh": "数", "pos_en": "num.", "pos_th": "ตัวเลข"},
+        {"id": 18, "hsk_level": "1", "word": "大", "pinyin": "dà", "trans_th": "ใหญ่", "trans_en": "big", "pos_zh": "形", "pos_en": "adj.", "pos_th": "คุณศัพท์"},
+        {"id": 19, "hsk_level": "1", "word": "小", "pinyin": "xiǎo", "trans_th": "เล็ก", "trans_en": "small", "pos_zh": "形", "pos_en": "adj.", "pos_th": "คุณศัพท์"},
+        {"id": 20, "hsk_level": "1", "word": "多", "pinyin": "duō", "trans_th": "มาก", "trans_en": "many", "pos_zh": "形、副", "pos_en": "adj./adv.", "pos_th": "คุณศัพท์"},
     ])
 
 
@@ -174,10 +174,11 @@ uploaded = st.sidebar.file_uploader("อัปโหลดไฟล์ CSV/Excel
 
 def map_vocab_columns(df_raw):
     cols = set(df_raw.columns)
-    if {"word", "trans_th", "hsk_level"}.issubset(cols):
+    # ตรวจสอบว่ามีคอลัมน์ที่จำเป็น
+    if {"word", "trans_th"}.issubset(cols) and ("level" in cols or "hsk_level" in cols):
         out = pd.DataFrame()
         out["id"] = df_raw["id"] if "id" in cols else range(1, len(df_raw) + 1)
-        out["hsk_level"] = df_raw["hsk_level"] if "hsk_level" in cols else df_raw["level"] if "level" in cols else ""
+        out["hsk_level"] = df_raw["level"] if "level" in cols else df_raw["hsk_level"] if "hsk_level" in cols else ""
         out["word"] = df_raw["word"]
         out["pinyin"] = df_raw["pinyin"] if "pinyin" in cols else ""
         out["trans_th"] = df_raw["trans_th"]
@@ -186,6 +187,8 @@ def map_vocab_columns(df_raw):
             out["pos_en"] = df_raw["pos_en"]
         if "pos_th" in cols:
             out["pos_th"] = df_raw["pos_th"]
+        if "pos_zh" in cols:
+            out["pos_zh"] = df_raw["pos_zh"]
         return out
     return None
 
@@ -193,7 +196,7 @@ if uploaded is not None:
     if "default_vocab_warned" in st.session_state:
         del st.session_state.default_vocab_warned
     df = None
-    for skip in [0, 1]:
+    for skip in [1, 0, 2]:  # ลอง skip แถวที่ 1 ก่อน (0-indexed)
         try:
             df_raw = pd.read_excel(uploaded, skiprows=skip) if uploaded.name.lower().endswith((".xlsx", ".xls")) else pd.read_csv(uploaded, skiprows=skip)
         except Exception:
@@ -206,11 +209,13 @@ if uploaded is not None:
         if mapped is not None:
             df = mapped
             break
-        if {"word", "pinyin", "trans_th", "hsk_level"}.issubset(df_raw.columns):
+        if {"word", "pinyin", "trans_th"}.issubset(df_raw.columns) and ("level" in df_raw.columns or "hsk_level" in df_raw.columns):
+            if "hsk_level" not in df_raw.columns and "level" in df_raw.columns:
+                df_raw = df_raw.rename(columns={"level": "hsk_level"})
             df = df_raw
             break
     if df is None:
-        st.error("⚠️ ไม่พบคอลัมน์ที่รองรับ")
+        st.error("⚠️ ไม่พบคอลัมน์ที่รองรับ (ต้องมี: word, trans_th, และ level/hsk_level)")
         st.stop()
 else:
     df = get_default_vocab()
@@ -238,6 +243,8 @@ if "col_mapping" not in st.session_state:
         "hsk_level": "hsk_level" if "hsk_level" in df.columns else "level" if "level" in df.columns else None,
         "word": "word" if "word" in df.columns else "simplified" if "simplified" in df.columns else None,
         "pos_en": "pos_en" if "pos_en" in df.columns else None,
+        "pos_th": "pos_th" if "pos_th" in df.columns else None,
+        "pos_zh": "pos_zh" if "pos_zh" in df.columns else None,
         "pinyin": "pinyin" if "pinyin" in df.columns else None,
         "trans_th": "trans_th" if "trans_th" in df.columns else "meaning" if "meaning" in df.columns else None,
         "trans_en": "trans_en" if "trans_en" in df.columns else None,
@@ -249,6 +256,8 @@ if "col_display_toggle" not in st.session_state:
         "hsk_level": True,
         "word": True,
         "pos_en": bool(st.session_state.col_mapping.get("pos_en")),
+        "pos_th": bool(st.session_state.col_mapping.get("pos_th")),
+        "pos_zh": False,
         "pinyin": True,
         "trans_th": True,
         "trans_en": False,
@@ -278,8 +287,14 @@ if st.session_state.col_mapping_show:
     new_word = st.sidebar.selectbox("คำจีน", avail_cols, index=avail_cols.index(m.get("word")) if m.get("word") in avail_cols else 0, key="sel_word")
     st.session_state.col_mapping["word"] = new_word if new_word != "(ไม่ใช้)" else None
 
-    new_pos = st.sidebar.selectbox("ชนิดคำ (EN)", avail_cols, index=avail_cols.index(m.get("pos_en")) if m.get("pos_en") in avail_cols else 0, key="sel_pos")
-    st.session_state.col_mapping["pos_en"] = new_pos if new_pos != "(ไม่ใช้)" else None
+    new_pos_en = st.sidebar.selectbox("ชนิดคำ (EN)", avail_cols, index=avail_cols.index(m.get("pos_en")) if m.get("pos_en") in avail_cols else 0, key="sel_pos_en")
+    st.session_state.col_mapping["pos_en"] = new_pos_en if new_pos_en != "(ไม่ใช้)" else None
+
+    new_pos_th = st.sidebar.selectbox("ชนิดคำ (TH)", avail_cols, index=avail_cols.index(m.get("pos_th")) if m.get("pos_th") in avail_cols else 0, key="sel_pos_th")
+    st.session_state.col_mapping["pos_th"] = new_pos_th if new_pos_th != "(ไม่ใช้)" else None
+
+    new_pos_zh = st.sidebar.selectbox("ชนิดคำ (ZH)", avail_cols, index=avail_cols.index(m.get("pos_zh")) if m.get("pos_zh") in avail_cols else 0, key="sel_pos_zh")
+    st.session_state.col_mapping["pos_zh"] = new_pos_zh if new_pos_zh != "(ไม่ใช้)" else None
 
     new_pin = st.sidebar.selectbox("พินอิน", avail_cols, index=avail_cols.index(m.get("pinyin")) if m.get("pinyin") in avail_cols else 0, key="sel_pin")
     st.session_state.col_mapping["pinyin"] = new_pin if new_pin != "(ไม่ใช้)" else None
@@ -294,7 +309,9 @@ if st.session_state.col_mapping_show:
     st.session_state.col_display_toggle["id"] = st.sidebar.checkbox("ID", st.session_state.col_display_toggle.get("id", True), key="tog_id")
     st.session_state.col_display_toggle["hsk_level"] = st.sidebar.checkbox("HSK", st.session_state.col_display_toggle.get("hsk_level", True), key="tog_hsk")
     st.session_state.col_display_toggle["word"] = st.sidebar.checkbox("คำจีน", st.session_state.col_display_toggle.get("word", True), key="tog_word")
-    st.session_state.col_display_toggle["pos_en"] = st.sidebar.checkbox("ชนิดคำ", st.session_state.col_display_toggle.get("pos_en", False), key="tog_pos")
+    st.session_state.col_display_toggle["pos_en"] = st.sidebar.checkbox("ชนิดคำ (EN)", st.session_state.col_display_toggle.get("pos_en", False), key="tog_pos_en")
+    st.session_state.col_display_toggle["pos_th"] = st.sidebar.checkbox("ชนิดคำ (TH)", st.session_state.col_display_toggle.get("pos_th", False), key="tog_pos_th")
+    st.session_state.col_display_toggle["pos_zh"] = st.sidebar.checkbox("ชนิดคำ (ZH)", st.session_state.col_display_toggle.get("pos_zh", False), key="tog_pos_zh")
     st.session_state.col_display_toggle["pinyin"] = st.sidebar.checkbox("พินอิน", st.session_state.col_display_toggle.get("pinyin", True), key="tog_pin")
     st.session_state.col_display_toggle["trans_th"] = st.sidebar.checkbox("แปลไทย", st.session_state.col_display_toggle.get("trans_th", True), key="tog_trans_th")
     st.session_state.col_display_toggle["trans_en"] = st.sidebar.checkbox("แปลอังกฤษ", st.session_state.col_display_toggle.get("trans_en", False), key="tog_trans_en")
@@ -529,7 +546,7 @@ with tab1:
 with tab2:
     if not filtered_df.empty:
         disp_cols = []
-        col_order = ["id", "hsk_level", "word", "pos_en", "pinyin", "trans_th", "trans_en"]
+        col_order = ["id", "hsk_level", "word", "pos_en", "pos_th", "pos_zh", "pinyin", "trans_th", "trans_en"]
         
         for col_key in col_order:
             if st.session_state.col_display_toggle.get(col_key) and st.session_state.col_mapping.get(col_key):
