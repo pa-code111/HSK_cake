@@ -409,7 +409,7 @@ with tab1:
             st.session_state.current_word = filtered_df.sample().iloc[0]
             st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
 
-        for k, v in [('card_flipped', False), ('audio_played', False), ('remembered', []), ('forgotten', []), ('play_history', []), ('ai_response', None), ('ai_response_word', None), ('reveal_side', False), ('last_word_id', None)]:
+        for k, v in [('card_flipped', False), ('audio_played', False), ('remembered', []), ('forgotten', []), ('play_history', []), ('ai_response', None), ('ai_response_word', None), ('reveal_side', False), ('last_word_id', None), ('show_translate_options', False)]:
             if k not in st.session_state:
                 st.session_state[k] = v
 
@@ -447,6 +447,7 @@ with tab1:
             st.session_state.ai_response = None
             st.session_state.ai_response_word = None
             st.session_state.last_word_id = st.session_state.current_word.get('id')
+            st.session_state.show_translate_options = False
 
         if st.session_state.audio_enabled and not st.session_state.audio_played:
             try:
@@ -553,10 +554,24 @@ with tab1:
                 st.markdown(f"- 🇨🇳 {current_word_text}\n- 📖 {pin}\n- 🇹🇭 {mean}")
 
                 if st.button("🆓 แปลฟรี", use_container_width=True, key="translate_btn"):
-                    with st.spinner("..."):
-                        trans = free_translate(current_word_text, "zh-CN", "th")
-                    st.session_state.ai_response = f"**แปล:** {trans}" if trans else "⚠️ แปลไม่ได้"
-                    st.session_state.ai_response_word = current_word_text
+                    st.session_state.show_translate_options = True
+                
+                if st.session_state.get("show_translate_options", False):
+                    st.markdown("**เลือกวิธีแปล:**")
+                    tr_col1, tr_col2 = st.columns(2)
+                    
+                    with tr_col1:
+                        if st.button("🤖 ใช้ AI (MyMemory)", use_container_width=True, key="ai_translate"):
+                            with st.spinner("กำลังแปล..."):
+                                trans = free_translate(current_word_text, "zh-CN", "th")
+                            st.session_state.ai_response = f"**แปล:** {trans}" if trans else "⚠️ แปลไม่ได้"
+                            st.session_state.ai_response_word = current_word_text
+                            st.session_state.show_translate_options = False
+                            st.rerun()
+                    
+                    with tr_col2:
+                        trans_url = f"https://translate.google.com/?sl=zh-CN&tl=th&text={urllib.parse.quote(current_word_text)}"
+                        st.markdown(f"[🌍 ใช้ Google Translate]({trans_url})", unsafe_allow_html=False)
 
                 if st.session_state.ai_response and st.session_state.ai_response_word == current_word_text:
                     st.divider()
@@ -564,29 +579,9 @@ with tab1:
 
 with tab2:
     if not filtered_df.empty:
-        # Search in current page
-        st.markdown('<div class="sidebar-section-title">🔍 ค้นหาในหน้านี้</div>', unsafe_allow_html=True)
-        local_query = st.text_input("ค้นหาคำในหน้าปัจจุบัน", placeholder="ค้นหา...", key="tab2_search")
-        
-        page_df_search = filtered_df
-        if local_query:
-            q_toneless = strip_tones(local_query.strip())
-            search_mask = pd.Series([False] * len(filtered_df))
-            
-            if word_col and word_col in filtered_df.columns:
-                search_mask = search_mask | (filtered_df[word_col].astype(str).str.contains(local_query, case=False, na=False, regex=False))
-            if pinyin_col and pinyin_col in filtered_df.columns:
-                search_mask = search_mask | (filtered_df[pinyin_col].apply(strip_tones).str.contains(q_toneless, na=False, regex=False))
-            if trans_th_col and trans_th_col in filtered_df.columns:
-                search_mask = search_mask | (filtered_df[trans_th_col].astype(str).str.contains(local_query, case=False, na=False, regex=False))
-            if id_col and id_col in filtered_df.columns:
-                search_mask = search_mask | (filtered_df[id_col].astype(str).str.contains(local_query, case=False, na=False, regex=False))
-            
-            page_df_search = filtered_df[search_mask]
-        
         # Pagination
         items_per_page = 100
-        total_items = len(page_df_search)
+        total_items = len(filtered_df)
         total_pages = (total_items + items_per_page - 1) // items_per_page
         
         if "vocab_page" not in st.session_state:
@@ -629,7 +624,7 @@ with tab2:
             # Get current page data
             start_idx = (st.session_state.vocab_page - 1) * items_per_page
             end_idx = start_idx + items_per_page
-            page_df = page_df_search.iloc[start_idx:end_idx].copy()
+            page_df = filtered_df.iloc[start_idx:end_idx]
             
             # Display columns
             disp_cols = []
@@ -640,29 +635,34 @@ with tab2:
                     disp_cols.append(st.session_state.col_mapping[col_key])
 
             show_cols = disp_cols if disp_cols else list(page_df.columns)
-            
-            # Add translate button column if word column exists
-            if word_col and word_col in page_df.columns:
-                st.markdown("**คลิกคำเพื่อแปล:**")
-                for idx, row in page_df.iterrows():
-                    col_word, col_trans = st.columns([0.3, 0.7])
-                    with col_word:
-                        word_text = str(row[word_col])
-                        trans_url = f"https://translate.google.com/?sl=zh-CN&tl=th&text={urllib.parse.quote(word_text)}"
-                        st.markdown(f"[🌐 {word_text}]({trans_url})", unsafe_allow_html=False)
-                    with col_trans:
-                        st.write(str(row.get(trans_th_col, "")))
-                
-                st.divider()
-            
-            # Display dataframe
             st.dataframe(page_df[show_cols], use_container_width=True, hide_index=True)
             
+            st.divider()
+            
+            # Translation buttons
+            st.markdown("**🌐 แปลคำศัพท์ทั้งหมด:**")
+            tr_col1, tr_col2 = st.columns(2)
+            
+            with tr_col1:
+                if st.button("🤖 ใช้ AI (MyMemory)", use_container_width=True, key="ai_translate_btn"):
+                    with st.spinner("กำลังแปล..."):
+                        for idx, row in filtered_df.iterrows():
+                            word = row.get(word_col, "")
+                            if word and not pd.isna(word):
+                                trans = free_translate(str(word), "zh-CN", "th")
+                    st.success("✅ แปลเสร็จแล้ว")
+            
+            with tr_col2:
+                if word_col and word_col in filtered_df.columns:
+                    word_to_translate = filtered_df.iloc[0][word_col] if len(filtered_df) > 0 else ""
+                    trans_url = f"https://translate.google.com/?sl=zh-CN&tl=th&text={urllib.parse.quote(str(word_to_translate))}"
+                    st.markdown(f"[🌍 ใช้ Google Translate]({trans_url})", unsafe_allow_html=False)
+            
             # Download button
-            csv = page_df_search[show_cols].to_csv(index=False).encode('utf-8')
+            csv = filtered_df[show_cols].to_csv(index=False).encode('utf-8')
             st.download_button("⬇️ ดาวน์โหลด CSV (ทั้งหมด)", csv, 'hsk_list.csv', 'text/csv')
         else:
-            st.info("ไม่พบคำที่ค้นหา")
+            st.info("ไม่มีข้อมูล")
     else:
         st.info("ไม่มีคำในเลเวลที่เลือก")
 
