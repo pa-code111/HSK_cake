@@ -255,10 +255,10 @@ if "col_display_toggle" not in st.session_state:
         "id": True,
         "hsk_level": True,
         "word": True,
+        "pinyin": True,
         "pos_en": True,
         "pos_th": False,
         "pos_zh": False,
-        "pinyin": True,
         "trans_th": True,
         "trans_en": False,
     }
@@ -269,38 +269,92 @@ if "col_mapping_show" not in st.session_state:
 # ─── Sidebar: column mapping ────────────────────────────────────────────────
 st.sidebar.markdown('<div class="sidebar-section-title">⚙️ การตั้งค่าคอลัมน์</div>', unsafe_allow_html=True)
 
+# Dropdown สำหรับเลือกคอลัมน์
+with st.sidebar.expander("🔧 เลือกคอลัมน์จาก CSV", expanded=False):
+    avail_cols = ["(ไม่ใช้)"] + sorted(df.columns.tolist())
+    m = st.session_state.col_mapping
+    
+    new_id = st.selectbox("ID", avail_cols, index=avail_cols.index(m.get("id")) if m.get("id") in avail_cols else 0, key="sel_id")
+    st.session_state.col_mapping["id"] = new_id if new_id != "(ไม่ใช้)" else None
+
+    new_hsk = st.selectbox("HSK Level", avail_cols, index=avail_cols.index(m.get("hsk_level")) if m.get("hsk_level") in avail_cols else 0, key="sel_hsk")
+    st.session_state.col_mapping["hsk_level"] = new_hsk if new_hsk != "(ไม่ใช้)" else None
+
+    new_word = st.selectbox("คำจีน", avail_cols, index=avail_cols.index(m.get("word")) if m.get("word") in avail_cols else 0, key="sel_word")
+    st.session_state.col_mapping["word"] = new_word if new_word != "(ไม่ใช้)" else None
+
+    new_pos_en = st.selectbox("ชนิดคำ (EN)", avail_cols, index=avail_cols.index(m.get("pos_en")) if m.get("pos_en") in avail_cols else 0, key="sel_pos_en")
+    st.session_state.col_mapping["pos_en"] = new_pos_en if new_pos_en != "(ไม่ใช้)" else None
+
+    new_pos_th = st.selectbox("ชนิดคำ (TH)", avail_cols, index=avail_cols.index(m.get("pos_th")) if m.get("pos_th") in avail_cols else 0, key="sel_pos_th")
+    st.session_state.col_mapping["pos_th"] = new_pos_th if new_pos_th != "(ไม่ใช้)" else None
+
+    new_pos_zh = st.selectbox("ชนิดคำ (ZH)", avail_cols, index=avail_cols.index(m.get("pos_zh")) if m.get("pos_zh") in avail_cols else 0, key="sel_pos_zh")
+    st.session_state.col_mapping["pos_zh"] = new_pos_zh if new_pos_zh != "(ไม่ใช้)" else None
+
+    new_pin = st.selectbox("พินอิน", avail_cols, index=avail_cols.index(m.get("pinyin")) if m.get("pinyin") in avail_cols else 0, key="sel_pin")
+    st.session_state.col_mapping["pinyin"] = new_pin if new_pin != "(ไม่ใช้)" else None
+
+    new_trans_th = st.selectbox("แปลไทย", avail_cols, index=avail_cols.index(m.get("trans_th")) if m.get("trans_th") in avail_cols else 0, key="sel_trans_th")
+    st.session_state.col_mapping["trans_th"] = new_trans_th if new_trans_th != "(ไม่ใช้)" else None
+
+    new_trans_en = st.selectbox("แปลอังกฤษ", avail_cols, index=avail_cols.index(m.get("trans_en")) if m.get("trans_en") in avail_cols else 0, key="sel_trans_en")
+    st.session_state.col_mapping["trans_en"] = new_trans_en if new_trans_en != "(ไม่ใช้)" else None
+
 st.sidebar.markdown("**เลือกคอลัมน์ที่จะแสดง:**")
 
 st.session_state.col_display_toggle["id"] = st.sidebar.checkbox("ID", st.session_state.col_display_toggle.get("id", True), key="tog_id")
 st.session_state.col_display_toggle["hsk_level"] = st.sidebar.checkbox("HSK", st.session_state.col_display_toggle.get("hsk_level", True), key="tog_hsk")
 st.session_state.col_display_toggle["word"] = st.sidebar.checkbox("คำจีน", st.session_state.col_display_toggle.get("word", True), key="tog_word")
+st.session_state.col_display_toggle["pinyin"] = st.sidebar.checkbox("พินอิน", st.session_state.col_display_toggle.get("pinyin", True), key="tog_pin")
 st.session_state.col_display_toggle["pos_en"] = st.sidebar.checkbox("ชนิดคำ (EN)", st.session_state.col_display_toggle.get("pos_en", True), key="tog_pos_en")
 st.session_state.col_display_toggle["pos_th"] = st.sidebar.checkbox("ชนิดคำ (TH)", st.session_state.col_display_toggle.get("pos_th", False), key="tog_pos_th")
 st.session_state.col_display_toggle["pos_zh"] = st.sidebar.checkbox("ชนิดคำ (ZH)", st.session_state.col_display_toggle.get("pos_zh", False), key="tog_pos_zh")
-st.session_state.col_display_toggle["pinyin"] = st.sidebar.checkbox("พินอิน", st.session_state.col_display_toggle.get("pinyin", True), key="tog_pin")
 st.session_state.col_display_toggle["trans_th"] = st.sidebar.checkbox("แปลไทย", st.session_state.col_display_toggle.get("trans_th", True), key="tog_trans_th")
 st.session_state.col_display_toggle["trans_en"] = st.sidebar.checkbox("แปลอังกฤษ", st.session_state.col_display_toggle.get("trans_en", False), key="tog_trans_en")
 
-# ─── Sidebar: search ──────────────────────────────────────────────────────────
-st.sidebar.markdown('<div class="sidebar-section-title">🔍 ค้นหา</div>', unsafe_allow_html=True)
-query = st.sidebar.text_input("ค้นหา", placeholder="id / คำจีน / พินอิน / คำแปล", label_visibility="collapsed")
-
+# ─── Get column names ─────────────────────────────────────────────────────────
 word_col = st.session_state.col_mapping.get("word", "word")
 pinyin_col = st.session_state.col_mapping.get("pinyin", "pinyin")
 trans_th_col = st.session_state.col_mapping.get("trans_th", "trans_th")
 id_col = st.session_state.col_mapping.get("id", "id")
 
-if query and word_col:
+# ─── Sidebar: search ──────────────────────────────────────────────────────────
+st.sidebar.markdown('<div class="sidebar-section-title">🔍 ค้นหา</div>', unsafe_allow_html=True)
+query = st.sidebar.text_input("ค้นหาในทุกคอลัมน์", placeholder="id / คำจีน / พินอิน / แปล", label_visibility="collapsed")
+
+if query:
     q_toneless = strip_tones(query.strip())
-    mask = (
-        (df[word_col].astype(str).str.contains(query, case=False, na=False, regex=False)) if word_col else False
-    )
-    if pinyin_col:
+    mask = pd.Series([False] * len(df))
+    
+    # ค้นหา ID
+    if st.session_state.col_display_toggle.get("id") and id_col:
+        mask = mask | (df[id_col].astype(str).str.contains(query, case=False, na=False, regex=False))
+    
+    # ค้นหาคำจีน
+    if st.session_state.col_display_toggle.get("word") and word_col:
+        mask = mask | (df[word_col].astype(str).str.contains(query, case=False, na=False, regex=False))
+    
+    # ค้นหาพินอิน (ไม่ต้องมี tone marks)
+    if st.session_state.col_display_toggle.get("pinyin") and pinyin_col:
         mask = mask | (df[pinyin_col].apply(strip_tones).str.contains(q_toneless, na=False, regex=False))
-    if trans_th_col:
+    
+    # ค้นหาแปลไทย
+    if st.session_state.col_display_toggle.get("trans_th") and trans_th_col:
         mask = mask | (df[trans_th_col].astype(str).str.contains(query, case=False, na=False, regex=False))
-    if id_col:
-        mask = mask | (df[id_col].astype(str) == query.strip())
+    
+    # ค้นหาแปลอังกฤษ
+    if st.session_state.col_display_toggle.get("trans_en") and st.session_state.col_mapping.get("trans_en"):
+        trans_en_col = st.session_state.col_mapping["trans_en"]
+        if trans_en_col in df.columns:
+            mask = mask | (df[trans_en_col].astype(str).str.contains(query, case=False, na=False, regex=False))
+    
+    # ค้นหาชนิดคำ
+    if st.session_state.col_display_toggle.get("pos_en") and st.session_state.col_mapping.get("pos_en"):
+        pos_en_col = st.session_state.col_mapping["pos_en"]
+        if pos_en_col in df.columns:
+            mask = mask | (df[pos_en_col].astype(str).str.contains(query, case=False, na=False, regex=False))
+    
     df = df[mask]
     st.sidebar.caption(f"พบ {len(df)} คำ")
 
@@ -510,17 +564,66 @@ with tab1:
 
 with tab2:
     if not filtered_df.empty:
+        # Pagination
+        items_per_page = 100
+        total_items = len(filtered_df)
+        total_pages = (total_items + items_per_page - 1) // items_per_page
+        
+        if "vocab_page" not in st.session_state:
+            st.session_state.vocab_page = 1
+        
+        # Ensure current page is valid
+        if st.session_state.vocab_page > total_pages:
+            st.session_state.vocab_page = total_pages
+        if st.session_state.vocab_page < 1:
+            st.session_state.vocab_page = 1
+        
+        # Display pagination controls
+        col_pg1, col_pg2, col_pg3, col_pg4, col_pg5 = st.columns([0.2, 0.2, 0.15, 0.2, 0.25])
+        
+        with col_pg1:
+            if st.button("⬅️ ก่อนหน้า", use_container_width=True):
+                st.session_state.vocab_page = max(1, st.session_state.vocab_page - 1)
+                st.rerun()
+        
+        with col_pg2:
+            if st.button("ถัดไป ➡️", use_container_width=True):
+                st.session_state.vocab_page = min(total_pages, st.session_state.vocab_page + 1)
+                st.rerun()
+        
+        with col_pg3:
+            page_input = st.number_input("หน้า", min_value=1, max_value=total_pages, value=st.session_state.vocab_page, key="page_input")
+            if page_input != st.session_state.vocab_page:
+                st.session_state.vocab_page = page_input
+                st.rerun()
+        
+        with col_pg4:
+            st.markdown(f"<div style='display:flex;align-items:center;height:100%;text-align:center;'><strong>{st.session_state.vocab_page} / {total_pages}</strong></div>", unsafe_allow_html=True)
+        
+        with col_pg5:
+            st.markdown(f"<div style='display:flex;align-items:center;height:100%;text-align:right;'><small>รวม {total_items} คำ</small></div>", unsafe_allow_html=True)
+        
+        st.divider()
+        
+        # Get current page data
+        start_idx = (st.session_state.vocab_page - 1) * items_per_page
+        end_idx = start_idx + items_per_page
+        page_df = filtered_df.iloc[start_idx:end_idx]
+        
+        # Display columns
         disp_cols = []
-        col_order = ["id", "hsk_level", "word", "pos_en", "pos_th", "pos_zh", "pinyin", "trans_th", "trans_en"]
+        col_order = ["id", "hsk_level", "word", "pinyin", "pos_en", "pos_th", "pos_zh", "trans_th", "trans_en"]
         
         for col_key in col_order:
             if st.session_state.col_display_toggle.get(col_key) and st.session_state.col_mapping.get(col_key):
                 disp_cols.append(st.session_state.col_mapping[col_key])
 
-        show_cols = disp_cols if disp_cols else list(filtered_df.columns)
-        st.dataframe(filtered_df[show_cols], use_container_width=True, hide_index=True)
+        show_cols = disp_cols if disp_cols else list(page_df.columns)
+        st.dataframe(page_df[show_cols], use_container_width=True, hide_index=True)
+        
+        # Download button
         csv = filtered_df[show_cols].to_csv(index=False).encode('utf-8')
-        st.download_button("⬇️ ดาวน์โหลด CSV", csv, 'hsk_list.csv', 'text/csv')
+        st.download_button("⬇️ ดาวน์โหลด CSV (ทั้งหมด)", csv, 'hsk_list.csv', 'text/csv')
     else:
         st.info("ไม่มีคำในเลเวลที่เลือก")
 
