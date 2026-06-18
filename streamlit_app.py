@@ -110,7 +110,6 @@ def get_hsk_color(level):
 
 st.markdown("""
 <style>
-.flip-toggle-checkbox { position:absolute; opacity:0; width:0; height:0; pointer-events:none; }
 .flip-card {
     background-color:transparent;
     width:100%;
@@ -119,6 +118,7 @@ st.markdown("""
     margin:16px 0;
     display:block;
     cursor:pointer;
+    user-select:none;
 }
 .flip-card-inner {
     position:relative;
@@ -128,8 +128,7 @@ st.markdown("""
     transition:transform 0.65s cubic-bezier(0.68, -0.55, 0.265, 1.55);
     transform-style:preserve-3d;
 }
-.flip-card.flipped .flip-card-inner,
-.flip-toggle-checkbox:checked + .flip-card .flip-card-inner {
+.flip-card.flipped .flip-card-inner {
     transform:rotateY(180deg);
 }
 .flip-card-front,
@@ -179,11 +178,6 @@ st.markdown("""
     padding: 10px 14px;
     margin: 8px 0;
     font-size: 15px;
-}
-.vocab-search-highlight {
-    background: #fff3cd;
-    border-radius: 3px;
-    padding: 1px 3px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -489,12 +483,11 @@ with tab1:
             flipped = "flipped" if st.session_state.card_flipped else ""
             colors = get_hsk_color(st.session_state.current_word['hsk_level'])
             current_word_text = st.session_state.current_word[word_col] if word_col else st.session_state.current_word['word']
-            # ใช้ flip_generation ใน id เพื่อบังคับ browser สร้าง checkbox ใหม่ → ไม่จำ checked state เดิม
-            flip_key = f"{current_word_id}_{st.session_state.get('flip_generation', 0)}"
+            # flip_generation ทำให้ทุก element มี id ใหม่ → browser ไม่ cache state เดิม
+            flip_key = f"fc_{st.session_state.get('flip_generation', 0)}"
 
             st.markdown(f"""
-            <input type="checkbox" id="flip-toggle-{flip_key}" class="flip-toggle-checkbox">
-            <label for="flip-toggle-{flip_key}" class="flip-card {flipped}">
+            <div id="{flip_key}" class="flip-card {flipped}" onclick="this.classList.toggle('flipped')">
                 <div class="flip-card-inner">
                     <div class="flip-card-front" style="background: linear-gradient({colors['gradient']});">
                         <div class="id-badge">#{st.session_state.current_word.get('id', '')}</div>
@@ -508,7 +501,7 @@ with tab1:
                         <div class="meaning-text">{st.session_state.current_word.get(trans_th_col, st.session_state.current_word.get('trans_th', ''))}</div>
                     </div>
                 </div>
-            </label>
+            </div>
             """, unsafe_allow_html=True)
 
             r1, r2 = st.columns(2)
@@ -713,26 +706,55 @@ with tab2:
                     disp_cols.append(st.session_state.col_mapping[col_key])
             show_cols = disp_cols if disp_cols else list(page_df.columns)
             
-            st.dataframe(page_df[show_cols], use_container_width=True, hide_index=True)
+            # dataframe แบบเลือก row ได้ → คลิกแล้วแปลคำได้เลย
+            selection = st.dataframe(
+                page_df[show_cols],
+                use_container_width=True,
+                hide_index=True,
+                on_select="rerun",
+                selection_mode="single-row",
+                key="vocab_df_selection"
+            )
+
+            # ถ้ามี row ถูกเลือก → ดึงคำจีนมาใส่ใน session_state
+            selected_rows = selection.selection.get("rows", [])
+            if selected_rows:
+                sel_idx = selected_rows[0]
+                sel_row = page_df.iloc[sel_idx]
+                clicked_word = str(sel_row[word_col]) if word_col and word_col in sel_row.index else ""
+                if clicked_word and clicked_word != st.session_state.get("vocab_clicked_word", ""):
+                    st.session_state["vocab_clicked_word"] = clicked_word
+                    # sync ไปที่ช่องแปลด้วย
+                    st.session_state["vocab_translate_from_click"] = clicked_word
 
             st.divider()
 
             # ── แปลคำที่เลือก ─────────────────────────────────────────────────
             st.markdown("### 🌐 แปลคำศัพท์")
-            
+
+            # แสดง hint ถ้ายังไม่มีคำที่คลิก
+            clicked_from_table = st.session_state.get("vocab_translate_from_click", "")
+            if clicked_from_table:
+                st.info(f"🖱️ เลือกจากตาราง: **{clicked_from_table}**  *(คลิก row อื่นเพื่อเปลี่ยน หรือเลือกด้านล่าง)*")
+
             # เลือกคำจาก dropdown หรือพิมพ์เอง
             tr_input_col1, tr_input_col2 = st.columns([0.55, 0.45])
             
             with tr_input_col1:
-                # ดึงคำจีนทั้งหมดในหน้า
                 if word_col and word_col in page_df.columns:
                     word_options = ["(พิมพ์เอง)"] + page_df[word_col].dropna().astype(str).tolist()
                 else:
                     word_options = ["(พิมพ์เอง)"]
-                
+
+                # ถ้ามีคำจากการคลิก row → preselect ให้เลย
+                default_idx = 0
+                if clicked_from_table and clicked_from_table in word_options:
+                    default_idx = word_options.index(clicked_from_table)
+
                 selected_word_option = st.selectbox(
                     "เลือกคำที่ต้องการแปล",
                     word_options,
+                    index=default_idx,
                     key="vocab_translate_select"
                 )
             
@@ -742,7 +764,7 @@ with tab2:
                     word_to_translate = custom_word.strip() if custom_word else ""
                 else:
                     word_to_translate = selected_word_option
-                    st.markdown(f"<div style='padding:8px 0; font-size:24px;'>{word_to_translate}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='padding:8px 0; font-size:28px; text-align:center;'>{word_to_translate}</div>", unsafe_allow_html=True)
 
             if word_to_translate:
                 tr_b1, tr_b2, tr_b3 = st.columns(3)
