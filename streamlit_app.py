@@ -480,29 +480,105 @@ with tab1:
                 st.session_state.card_flipped = False
                 st.session_state.last_word_id = current_word_id
             
-            flipped = "flipped" if st.session_state.card_flipped else ""
+            flipped_class = "flipped" if st.session_state.card_flipped else ""
             colors = get_hsk_color(st.session_state.current_word['hsk_level'])
             current_word_text = st.session_state.current_word[word_col] if word_col else st.session_state.current_word['word']
-            # flip_generation ทำให้ทุก element มี id ใหม่ → browser ไม่ cache state เดิม
-            flip_key = f"fc_{st.session_state.get('flip_generation', 0)}"
+            flip_gen = st.session_state.get('flip_generation', 0)
 
-            st.markdown(f"""
-            <div id="{flip_key}" class="flip-card {flipped}" onclick="this.classList.toggle('flipped')">
-                <div class="flip-card-inner">
-                    <div class="flip-card-front" style="background: linear-gradient({colors['gradient']});">
-                        <div class="id-badge">#{st.session_state.current_word.get('id', '')}</div>
-                        <div class="hsk-badge">HSK {st.session_state.current_word['hsk_level']}</div>
-                        <div>{current_word_text}<div class="click-hint">แตะเพื่อเปิด</div></div>
-                    </div>
-                    <div class="flip-card-back" style="background: linear-gradient({colors['gradient']});">
-                        <div class="id-badge">#{st.session_state.current_word.get('id', '')}</div>
-                        <div class="hsk-badge">HSK {st.session_state.current_word['hsk_level']}</div>
-                        <div class="pinyin-text">{st.session_state.current_word.get(pinyin_col, st.session_state.current_word.get('pinyin', ''))}</div>
-                        <div class="meaning-text">{st.session_state.current_word.get(trans_th_col, st.session_state.current_word.get('trans_th', ''))}</div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            import streamlit.components.v1 as components
+            components.html(f"""
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+* {{ margin:0; padding:0; box-sizing:border-box; }}
+body {{ background:transparent; }}
+.flip-card {{
+    background-color:transparent;
+    width:100%;
+    height:380px;
+    perspective:1200px;
+    cursor:pointer;
+    user-select:none;
+}}
+.flip-card-inner {{
+    position:relative;
+    width:100%;
+    height:100%;
+    text-align:center;
+    transition:transform 0.65s cubic-bezier(0.68,-0.55,0.265,1.55);
+    transform-style:preserve-3d;
+}}
+.flip-card.flipped .flip-card-inner {{
+    transform:rotateY(180deg);
+}}
+.flip-card-front, .flip-card-back {{
+    position:absolute;
+    width:100%;
+    height:100%;
+    backface-visibility:hidden;
+    -webkit-backface-visibility:hidden;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    border-radius:24px;
+    box-shadow:0 10px 40px rgba(0,0,0,0.3);
+    padding:20px;
+}}
+.flip-card-front {{
+    background:linear-gradient({colors['gradient']});
+    color:white;
+    font-size:56px;
+    z-index:2;
+    flex-direction:column;
+}}
+.flip-card-back {{
+    background:linear-gradient({colors['gradient']});
+    color:white;
+    transform:rotateY(180deg);
+    flex-direction:column;
+    justify-content:space-around;
+    z-index:1;
+}}
+.badge {{
+    position:absolute;
+    top:14px;
+    padding:6px 14px;
+    border-radius:22px;
+    font-size:11px;
+    font-weight:800;
+    color:white;
+    background:rgba(0,0,0,0.25);
+    letter-spacing:0.5px;
+}}
+.id-b {{ left:14px; font-family:monospace; }}
+.hsk-b {{ right:14px; }}
+.pinyin {{ font-size:34px; font-weight:700; margin-bottom:8px; }}
+.meaning {{ font-size:26px; font-weight:600; }}
+.hint {{ font-size:13px; opacity:0.75; margin-top:10px; font-weight:500; }}
+</style>
+</head>
+<body>
+<div class="flip-card" id="card-{flip_gen}" onclick="this.classList.toggle('flipped')">
+    <div class="flip-card-inner">
+        <div class="flip-card-front">
+            <div class="badge id-b">#{st.session_state.current_word.get('id','')}</div>
+            <div class="badge hsk-b">HSK {st.session_state.current_word['hsk_level']}</div>
+            <div>{current_word_text}</div>
+            <div class="hint">แตะเพื่อเปิด</div>
+        </div>
+        <div class="flip-card-back">
+            <div class="badge id-b">#{st.session_state.current_word.get('id','')}</div>
+            <div class="badge hsk-b">HSK {st.session_state.current_word['hsk_level']}</div>
+            <div class="pinyin">{st.session_state.current_word.get(pinyin_col, st.session_state.current_word.get('pinyin',''))}</div>
+            <div class="meaning">{st.session_state.current_word.get(trans_th_col, st.session_state.current_word.get('trans_th',''))}</div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
+""", height=400, scrolling=False)
 
             r1, r2 = st.columns(2)
             with r1:
@@ -734,8 +810,6 @@ with tab2:
 
             # แสดง hint ถ้ายังไม่มีคำที่คลิก
             clicked_from_table = st.session_state.get("vocab_translate_from_click", "")
-            if clicked_from_table:
-                st.info(f"🖱️ เลือกจากตาราง: **{clicked_from_table}**  *(คลิก row อื่นเพื่อเปลี่ยน หรือเลือกด้านล่าง)*")
 
             # เลือกคำจาก dropdown หรือพิมพ์เอง
             tr_input_col1, tr_input_col2 = st.columns([0.55, 0.45])
@@ -746,7 +820,8 @@ with tab2:
                 else:
                     word_options = ["(พิมพ์เอง)"]
 
-                # ถ้ามีคำจากการคลิก row → preselect ให้เลย
+                # เปลี่ยน key ทุกครั้งที่ clicked_from_table เปลี่ยน เพื่อ force Streamlit re-render selectbox
+                select_key = f"vocab_translate_select_{clicked_from_table}"
                 default_idx = 0
                 if clicked_from_table and clicked_from_table in word_options:
                     default_idx = word_options.index(clicked_from_table)
@@ -755,7 +830,7 @@ with tab2:
                     "เลือกคำที่ต้องการแปล",
                     word_options,
                     index=default_idx,
-                    key="vocab_translate_select"
+                    key=select_key
                 )
             
             with tr_input_col2:
@@ -765,6 +840,17 @@ with tab2:
                 else:
                     word_to_translate = selected_word_option
                     st.markdown(f"<div style='padding:8px 0; font-size:28px; text-align:center;'>{word_to_translate}</div>", unsafe_allow_html=True)
+
+            # auto-translate ทันทีเมื่อคลิก row ใหม่จากตาราง
+            if clicked_from_table and st.session_state.get("vocab_auto_translate_done") != clicked_from_table:
+                with st.spinner("กำลังแปล..."):
+                    trans = free_translate(clicked_from_table, "zh-CN", "th")
+                if trans:
+                    st.session_state["vocab_translate_result"] = f"**{clicked_from_table}** → {trans}"
+                else:
+                    st.session_state["vocab_translate_result"] = "⚠️ แปลไม่ได้"
+                st.session_state["vocab_translate_target"] = clicked_from_table
+                st.session_state["vocab_auto_translate_done"] = clicked_from_table
 
             if word_to_translate:
                 tr_b1, tr_b2, tr_b3 = st.columns(3)
