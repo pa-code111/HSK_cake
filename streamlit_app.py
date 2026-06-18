@@ -85,6 +85,15 @@ def free_translate(text, source="zh-CN", target="th"):
     return free_translate_cached(text, source, target)
 
 
+def get_google_translate_url(text, sl="zh-CN", tl="th"):
+    return f"https://translate.google.com/?sl={sl}&tl={tl}&text={urllib.parse.quote(str(text))}&op=translate"
+
+
+def get_chatgpt_translate_url(text):
+    prompt = f"แปลคำจีนต่อไปนี้เป็นภาษาไทย พร้อมพินอิน ความหมาย และตัวอย่างประโยค: {text}"
+    return f"https://chat.openai.com/?q={urllib.parse.quote(prompt)}"
+
+
 def get_hsk_color(level):
     level_str = str(level)
     color_map = {
@@ -163,6 +172,19 @@ st.markdown("""
 .st-key-remember_btn button { font-size:22px !important; font-weight:800 !important; padding:1.2rem 0.5rem !important; border-radius:14px !important; background-color:rgba(76,175,80,0.15) !important; border:2px solid #4CAF50 !important; color:#2e7d32 !important; line-height:1.2 !important; }
 .st-key-forget_btn button { font-size:22px !important; font-weight:800 !important; padding:1.2rem 0.5rem !important; border-radius:14px !important; background-color:rgba(244,67,54,0.12) !important; border:2px solid #e57373 !important; color:#c62828 !important; line-height:1.2 !important; }
 .sidebar-section-title { font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #888; margin: 16px 0 6px 2px; }
+.translate-result-box {
+    background: rgba(0,0,0,0.05);
+    border-left: 3px solid #667eea;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 8px 0;
+    font-size: 15px;
+}
+.vocab-search-highlight {
+    background: #fff3cd;
+    border-radius: 3px;
+    padding: 1px 3px;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -174,7 +196,6 @@ uploaded = st.sidebar.file_uploader("อัปโหลดไฟล์ CSV/Excel
 
 def map_vocab_columns(df_raw):
     cols = set(df_raw.columns)
-    # ตรวจสอบว่ามีคอลัมน์ที่จำเป็น
     if {"word", "trans_th"}.issubset(cols) and ("level" in cols or "hsk_level" in cols):
         out = pd.DataFrame()
         out["id"] = df_raw["id"] if "id" in cols else range(1, len(df_raw) + 1)
@@ -196,7 +217,7 @@ if uploaded is not None:
     if "default_vocab_warned" in st.session_state:
         del st.session_state.default_vocab_warned
     df = None
-    for skip in [1, 0, 2]:  # ลอง skip แถวที่ 1 ก่อน (0-indexed)
+    for skip in [1, 0, 2]:
         try:
             df_raw = pd.read_excel(uploaded, skiprows=skip) if uploaded.name.lower().endswith((".xlsx", ".xls")) else pd.read_csv(uploaded, skiprows=skip)
         except Exception:
@@ -269,7 +290,6 @@ if "col_mapping_show" not in st.session_state:
 # ─── Sidebar: column mapping ────────────────────────────────────────────────
 st.sidebar.markdown('<div class="sidebar-section-title">⚙️ การตั้งค่าคอลัมน์</div>', unsafe_allow_html=True)
 
-# Dropdown สำหรับเลือกคอลัมน์
 with st.sidebar.expander("🔧 เลือกคอลัมน์จาก CSV", expanded=False):
     avail_cols = ["(ไม่ใช้)"] + sorted(df.columns.tolist())
     m = st.session_state.col_mapping
@@ -327,29 +347,18 @@ if query:
     q_toneless = strip_tones(query.strip())
     mask = pd.Series([False] * len(df))
     
-    # ค้นหา ID
     if st.session_state.col_display_toggle.get("id") and id_col:
         mask = mask | (df[id_col].astype(str).str.contains(query, case=False, na=False, regex=False))
-    
-    # ค้นหาคำจีน
     if st.session_state.col_display_toggle.get("word") and word_col:
         mask = mask | (df[word_col].astype(str).str.contains(query, case=False, na=False, regex=False))
-    
-    # ค้นหาพินอิน (ไม่ต้องมี tone marks)
     if st.session_state.col_display_toggle.get("pinyin") and pinyin_col:
         mask = mask | (df[pinyin_col].apply(strip_tones).str.contains(q_toneless, na=False, regex=False))
-    
-    # ค้นหาแปลไทย
     if st.session_state.col_display_toggle.get("trans_th") and trans_th_col:
         mask = mask | (df[trans_th_col].astype(str).str.contains(query, case=False, na=False, regex=False))
-    
-    # ค้นหาแปลอังกฤษ
     if st.session_state.col_display_toggle.get("trans_en") and st.session_state.col_mapping.get("trans_en"):
         trans_en_col = st.session_state.col_mapping["trans_en"]
         if trans_en_col in df.columns:
             mask = mask | (df[trans_en_col].astype(str).str.contains(query, case=False, na=False, regex=False))
-    
-    # ค้นหาชนิดคำ
     if st.session_state.col_display_toggle.get("pos_en") and st.session_state.col_mapping.get("pos_en"):
         pos_en_col = st.session_state.col_mapping["pos_en"]
         if pos_en_col in df.columns:
@@ -401,6 +410,9 @@ if st.sidebar.button(ai_label, use_container_width=True, key="ai_sidebar_btn"):
 # ─── Tabs ─────────────────────────────────────────────────────────────────────
 tab1, tab2, tab3 = st.tabs(["🎴 Flashcard", "📖 คำศัพท์", "📋 ประวัติ"])
 
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 1: FLASHCARD
+# ══════════════════════════════════════════════════════════════════════════════
 with tab1:
     if filtered_df.empty:
         st.warning("⚠️ ไม่มีคำในเลเวลที่เลือก")
@@ -409,7 +421,7 @@ with tab1:
             st.session_state.current_word = filtered_df.sample().iloc[0]
             st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
 
-        for k, v in [('card_flipped', False), ('audio_played', False), ('remembered', []), ('forgotten', []), ('play_history', []), ('ai_response', None), ('ai_response_word', None), ('reveal_side', False), ('last_word_id', None), ('show_translate_options', False)]:
+        for k, v in [('card_flipped', False), ('audio_played', False), ('remembered', []), ('forgotten', []), ('play_history', []), ('ai_response', None), ('ai_response_word', None), ('reveal_side', False), ('last_word_id', None), ('show_translate_options', False), ('card_translate_result', None), ('card_translate_word', None)]:
             if k not in st.session_state:
                 st.session_state[k] = v
 
@@ -448,6 +460,8 @@ with tab1:
             st.session_state.ai_response_word = None
             st.session_state.last_word_id = st.session_state.current_word.get('id')
             st.session_state.show_translate_options = False
+            st.session_state.card_translate_result = None
+            st.session_state.card_translate_word = None
 
         if st.session_state.audio_enabled and not st.session_state.audio_played:
             try:
@@ -465,7 +479,6 @@ with tab1:
             col_right = None
 
         with col_left:
-            # ตรวจสอบว่าคำเปลี่ยนหรือไม่ ถ้าเปลี่ยนให้รีเซ็ตการพลิปการ์ด
             current_word_id = st.session_state.current_word.get('id')
             if st.session_state.last_word_id != current_word_id:
                 st.session_state.card_flipped = False
@@ -473,7 +486,6 @@ with tab1:
             
             flipped = "flipped" if st.session_state.card_flipped else ""
             colors = get_hsk_color(st.session_state.current_word['hsk_level'])
-            
             current_word_text = st.session_state.current_word[word_col] if word_col else st.session_state.current_word['word']
 
             st.markdown(f"""
@@ -553,119 +565,205 @@ with tab1:
 
                 st.markdown(f"- 🇨🇳 {current_word_text}\n- 📖 {pin}\n- 🇹🇭 {mean}")
 
-                if st.button("🆓 แปลฟรี", use_container_width=True, key="translate_btn"):
-                    st.session_state.show_translate_options = True
+                st.divider()
+                # ── แปลคำ: MyMemory (ทำเลย) ──────────────────────────────
+                st.markdown("**🔠 แปลคำนี้:**")
                 
-                if st.session_state.get("show_translate_options", False):
-                    st.markdown("**เลือกวิธีแปล:**")
-                    tr_col1, tr_col2 = st.columns(2)
-                    
-                    with tr_col1:
-                        if st.button("🤖 ใช้ AI (MyMemory)", use_container_width=True, key="ai_translate"):
-                            with st.spinner("กำลังแปล..."):
-                                trans = free_translate(current_word_text, "zh-CN", "th")
-                            st.session_state.ai_response = f"**แปล:** {trans}" if trans else "⚠️ แปลไม่ได้"
-                            st.session_state.ai_response_word = current_word_text
-                            st.session_state.show_translate_options = False
-                            st.rerun()
-                    
-                    with tr_col2:
-                        trans_url = f"https://translate.google.com/?sl=zh-CN&tl=th&text={urllib.parse.quote(current_word_text)}"
-                        st.markdown(f"[🌍 ใช้ Google Translate]({trans_url})", unsafe_allow_html=False)
+                if st.button("🤖 MyMemory (แปลทันที)", use_container_width=True, key="mymemory_card_btn"):
+                    with st.spinner("กำลังแปล..."):
+                        trans = free_translate(current_word_text, "zh-CN", "th")
+                    if trans:
+                        st.session_state.card_translate_result = f"**{current_word_text}** → {trans}"
+                    else:
+                        st.session_state.card_translate_result = "⚠️ แปลไม่ได้ ลองใช้ตัวอื่น"
+                    st.session_state.card_translate_word = current_word_text
+                    st.rerun()
+
+                if st.session_state.card_translate_result and st.session_state.card_translate_word == current_word_text:
+                    st.markdown(f'<div class="translate-result-box">{st.session_state.card_translate_result}</div>', unsafe_allow_html=True)
+
+                # Google & GPT เปิด link ใหม่
+                g_url = get_google_translate_url(current_word_text)
+                gpt_url = get_chatgpt_translate_url(current_word_text)
+                
+                btn_c1, btn_c2 = st.columns(2)
+                with btn_c1:
+                    st.link_button("🌍 Google", g_url, use_container_width=True)
+                with btn_c2:
+                    st.link_button("🧠 ChatGPT", gpt_url, use_container_width=True)
 
                 if st.session_state.ai_response and st.session_state.ai_response_word == current_word_text:
                     st.divider()
                     st.markdown(st.session_state.ai_response)
 
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 2: คำศัพท์ (พร้อม search + translate เลือกคำได้)
+# ══════════════════════════════════════════════════════════════════════════════
 with tab2:
     if not filtered_df.empty:
-        # Pagination
+        # ── Search bar ในหน้าคำศัพท์ ─────────────────────────────────────────
+        st.markdown("### 🔍 ค้นหาคำศัพท์")
+        vocab_search_col1, vocab_search_col2 = st.columns([0.75, 0.25])
+        with vocab_search_col1:
+            vocab_query = st.text_input(
+                "ค้นหา",
+                placeholder="พิมพ์ id / คำจีน / pinyin (ไม่ต้องมีวรรณยุกต์) / แปล ...",
+                label_visibility="collapsed",
+                key="vocab_search_input"
+            )
+        with vocab_search_col2:
+            vocab_search_clear = st.button("✕ ล้าง", use_container_width=True, key="vocab_search_clear")
+            if vocab_search_clear:
+                st.session_state.vocab_search_input = ""
+                st.rerun()
+
+        # กรองข้อมูลในหน้าคำศัพท์แยกจาก sidebar
+        vocab_display_df = filtered_df.copy()
+        
+        if vocab_query and vocab_query.strip():
+            vq = vocab_query.strip()
+            vq_toneless = strip_tones(vq)
+            vmask = pd.Series([False] * len(vocab_display_df), index=vocab_display_df.index)
+            
+            # ค้นหาทุก column ที่เปิดอยู่
+            for col_key, actual_col in st.session_state.col_mapping.items():
+                if actual_col and actual_col in vocab_display_df.columns:
+                    if col_key == "pinyin":
+                        # fuzzy pinyin ไม่ต้องมีวรรณยุกต์
+                        vmask = vmask | (vocab_display_df[actual_col].apply(strip_tones).str.contains(vq_toneless, na=False, regex=False))
+                    else:
+                        vmask = vmask | (vocab_display_df[actual_col].astype(str).str.contains(vq, case=False, na=False, regex=False))
+            
+            vocab_display_df = vocab_display_df[vmask]
+            st.caption(f"🔎 พบ **{len(vocab_display_df)}** คำ จาก {len(filtered_df)} คำทั้งหมด")
+        else:
+            st.caption(f"📚 แสดงทั้งหมด **{len(vocab_display_df)}** คำ")
+
+        st.divider()
+
+        # ── Pagination ───────────────────────────────────────────────────────
         items_per_page = 100
-        total_items = len(filtered_df)
-        total_pages = (total_items + items_per_page - 1) // items_per_page
+        total_items = len(vocab_display_df)
+        total_pages = max(1, (total_items + items_per_page - 1) // items_per_page)
         
         if "vocab_page" not in st.session_state:
             st.session_state.vocab_page = 1
-        
-        # Ensure current page is valid
+
+        # reset page เมื่อค้นหาใหม่
+        if "last_vocab_query" not in st.session_state:
+            st.session_state.last_vocab_query = ""
+        if st.session_state.last_vocab_query != vocab_query:
+            st.session_state.vocab_page = 1
+            st.session_state.last_vocab_query = vocab_query
+
         if st.session_state.vocab_page > total_pages:
-            st.session_state.vocab_page = 1 if total_pages == 0 else total_pages
+            st.session_state.vocab_page = total_pages
         if st.session_state.vocab_page < 1:
             st.session_state.vocab_page = 1
-        
-        if total_pages > 0:
-            # Display pagination controls
+
+        if total_pages > 0 and total_items > 0:
             col_pg1, col_pg2, col_pg3, col_pg4, col_pg5 = st.columns([0.2, 0.2, 0.15, 0.2, 0.25])
-            
             with col_pg1:
                 if st.button("⬅️ ก่อนหน้า", use_container_width=True, key="prev_page"):
                     st.session_state.vocab_page = max(1, st.session_state.vocab_page - 1)
                     st.rerun()
-            
             with col_pg2:
                 if st.button("ถัดไป ➡️", use_container_width=True, key="next_page"):
                     st.session_state.vocab_page = min(total_pages, st.session_state.vocab_page + 1)
                     st.rerun()
-            
             with col_pg3:
                 page_input = st.number_input("หน้า", min_value=1, max_value=total_pages, value=st.session_state.vocab_page, key="page_input")
                 if page_input != st.session_state.vocab_page:
                     st.session_state.vocab_page = page_input
                     st.rerun()
-            
             with col_pg4:
                 st.markdown(f"<div style='display:flex;align-items:center;height:100%;text-align:center;'><strong>{st.session_state.vocab_page} / {total_pages}</strong></div>", unsafe_allow_html=True)
-            
             with col_pg5:
                 st.markdown(f"<div style='display:flex;align-items:center;height:100%;text-align:right;'><small>รวม {total_items} คำ</small></div>", unsafe_allow_html=True)
-            
-            st.divider()
-            
-            # Get current page data
+
             start_idx = (st.session_state.vocab_page - 1) * items_per_page
             end_idx = start_idx + items_per_page
-            page_df = filtered_df.iloc[start_idx:end_idx]
-            
-            # Display columns
+            page_df = vocab_display_df.iloc[start_idx:end_idx]
+
+            # columns ที่แสดง
             disp_cols = []
             col_order = ["id", "hsk_level", "word", "pinyin", "pos_en", "pos_th", "pos_zh", "trans_th", "trans_en"]
-            
             for col_key in col_order:
                 if st.session_state.col_display_toggle.get(col_key) and st.session_state.col_mapping.get(col_key):
                     disp_cols.append(st.session_state.col_mapping[col_key])
-
             show_cols = disp_cols if disp_cols else list(page_df.columns)
-            st.dataframe(page_df[show_cols], use_container_width=True, hide_index=True)
             
+            st.dataframe(page_df[show_cols], use_container_width=True, hide_index=True)
+
+            st.divider()
+
+            # ── แปลคำที่เลือก ─────────────────────────────────────────────────
+            st.markdown("### 🌐 แปลคำศัพท์")
+            
+            # เลือกคำจาก dropdown หรือพิมพ์เอง
+            tr_input_col1, tr_input_col2 = st.columns([0.55, 0.45])
+            
+            with tr_input_col1:
+                # ดึงคำจีนทั้งหมดในหน้า
+                if word_col and word_col in page_df.columns:
+                    word_options = ["(พิมพ์เอง)"] + page_df[word_col].dropna().astype(str).tolist()
+                else:
+                    word_options = ["(พิมพ์เอง)"]
+                
+                selected_word_option = st.selectbox(
+                    "เลือกคำที่ต้องการแปล",
+                    word_options,
+                    key="vocab_translate_select"
+                )
+            
+            with tr_input_col2:
+                if selected_word_option == "(พิมพ์เอง)":
+                    custom_word = st.text_input("พิมพ์คำจีน", placeholder="例: 你好", key="vocab_translate_custom", label_visibility="collapsed")
+                    word_to_translate = custom_word.strip() if custom_word else ""
+                else:
+                    word_to_translate = selected_word_option
+                    st.markdown(f"<div style='padding:8px 0; font-size:24px;'>{word_to_translate}</div>", unsafe_allow_html=True)
+
+            if word_to_translate:
+                tr_b1, tr_b2, tr_b3 = st.columns(3)
+                
+                with tr_b1:
+                    if st.button("🤖 MyMemory", use_container_width=True, key="vocab_mymemory_btn"):
+                        with st.spinner("กำลังแปล..."):
+                            trans = free_translate(word_to_translate, "zh-CN", "th")
+                        if trans:
+                            st.session_state["vocab_translate_result"] = f"**{word_to_translate}** → {trans}"
+                        else:
+                            st.session_state["vocab_translate_result"] = "⚠️ แปลไม่ได้"
+                        st.session_state["vocab_translate_target"] = word_to_translate
+                        st.rerun()
+                
+                with tr_b2:
+                    g_url = get_google_translate_url(word_to_translate)
+                    st.link_button("🌍 Google", g_url, use_container_width=True)
+                
+                with tr_b3:
+                    gpt_url = get_chatgpt_translate_url(word_to_translate)
+                    st.link_button("🧠 ChatGPT", gpt_url, use_container_width=True)
+
+                # แสดงผล MyMemory
+                if st.session_state.get("vocab_translate_result") and st.session_state.get("vocab_translate_target") == word_to_translate:
+                    st.markdown(f'<div class="translate-result-box">{st.session_state["vocab_translate_result"]}</div>', unsafe_allow_html=True)
+
             st.divider()
             
-            # Translation buttons
-            st.markdown("**🌐 แปลคำศัพท์ทั้งหมด:**")
-            tr_col1, tr_col2 = st.columns(2)
-            
-            with tr_col1:
-                if st.button("🤖 ใช้ AI (MyMemory)", use_container_width=True, key="ai_translate_btn"):
-                    with st.spinner("กำลังแปล..."):
-                        for idx, row in filtered_df.iterrows():
-                            word = row.get(word_col, "")
-                            if word and not pd.isna(word):
-                                trans = free_translate(str(word), "zh-CN", "th")
-                    st.success("✅ แปลเสร็จแล้ว")
-            
-            with tr_col2:
-                if word_col and word_col in filtered_df.columns:
-                    word_to_translate = filtered_df.iloc[0][word_col] if len(filtered_df) > 0 else ""
-                    trans_url = f"https://translate.google.com/?sl=zh-CN&tl=th&text={urllib.parse.quote(str(word_to_translate))}"
-                    st.markdown(f"[🌍 ใช้ Google Translate]({trans_url})", unsafe_allow_html=False)
-            
-            # Download button
-            csv = filtered_df[show_cols].to_csv(index=False).encode('utf-8')
-            st.download_button("⬇️ ดาวน์โหลด CSV (ทั้งหมด)", csv, 'hsk_list.csv', 'text/csv')
+            # Download
+            csv = vocab_display_df[show_cols].to_csv(index=False).encode('utf-8')
+            st.download_button("⬇️ ดาวน์โหลด CSV (ที่กรองแล้ว)", csv, 'hsk_list.csv', 'text/csv')
+
         else:
-            st.info("ไม่มีข้อมูล")
+            st.info("ไม่พบคำที่ตรงกับการค้นหา")
     else:
         st.info("ไม่มีคำในเลเวลที่เลือก")
 
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 3: ประวัติ
+# ══════════════════════════════════════════════════════════════════════════════
 with tab3:
     history = st.session_state.get("play_history", [])
     if not history:
