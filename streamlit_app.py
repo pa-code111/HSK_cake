@@ -421,7 +421,7 @@ with tab1:
             st.session_state.current_word = filtered_df.sample().iloc[0]
             st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
 
-        for k, v in [('card_flipped', False), ('audio_played', False), ('remembered', []), ('forgotten', []), ('play_history', []), ('ai_response', None), ('ai_response_word', None), ('reveal_side', False), ('last_word_id', None), ('show_translate_options', False), ('card_translate_result', None), ('card_translate_word', None)]:
+        for k, v in [('card_flipped', False), ('audio_played', False), ('remembered', []), ('forgotten', []), ('play_history', []), ('ai_response', None), ('ai_response_word', None), ('reveal_side', False), ('last_word_id', None), ('show_translate_options', False), ('card_translate_result', None), ('card_translate_word', None), ('flip_generation', 0)]:
             if k not in st.session_state:
                 st.session_state[k] = v
 
@@ -462,6 +462,8 @@ with tab1:
             st.session_state.show_translate_options = False
             st.session_state.card_translate_result = None
             st.session_state.card_translate_word = None
+            # เพิ่ม generation เพื่อบังคับให้ browser สร้าง checkbox ใหม่ → reset flip
+            st.session_state.flip_generation = st.session_state.get('flip_generation', 0) + 1
 
         if st.session_state.audio_enabled and not st.session_state.audio_played:
             try:
@@ -487,10 +489,12 @@ with tab1:
             flipped = "flipped" if st.session_state.card_flipped else ""
             colors = get_hsk_color(st.session_state.current_word['hsk_level'])
             current_word_text = st.session_state.current_word[word_col] if word_col else st.session_state.current_word['word']
+            # ใช้ flip_generation ใน id เพื่อบังคับ browser สร้าง checkbox ใหม่ → ไม่จำ checked state เดิม
+            flip_key = f"{current_word_id}_{st.session_state.get('flip_generation', 0)}"
 
             st.markdown(f"""
-            <input type="checkbox" id="flip-toggle-{current_word_id}" class="flip-toggle-checkbox">
-            <label for="flip-toggle-{current_word_id}" class="flip-card {flipped}">
+            <input type="checkbox" id="flip-toggle-{flip_key}" class="flip-toggle-checkbox">
+            <label for="flip-toggle-{flip_key}" class="flip-card {flipped}">
                 <div class="flip-card-inner">
                     <div class="flip-card-front" style="background: linear-gradient({colors['gradient']});">
                         <div class="id-badge">#{st.session_state.current_word.get('id', '')}</div>
@@ -603,19 +607,35 @@ with tab2:
     if not filtered_df.empty:
         # ── Search bar ในหน้าคำศัพท์ ─────────────────────────────────────────
         st.markdown("### 🔍 ค้นหาคำศัพท์")
+
+        # ปุ่มล้าง: set flag ก่อน render widget เพื่อกำหนด value เริ่มต้นถูกต้อง
+        if "vocab_search_clear_flag" not in st.session_state:
+            st.session_state.vocab_search_clear_flag = False
+
         vocab_search_col1, vocab_search_col2 = st.columns([0.75, 0.25])
-        with vocab_search_col1:
-            vocab_query = st.text_input(
-                "ค้นหา",
-                placeholder="พิมพ์ id / คำจีน / pinyin (ไม่ต้องมีวรรณยุกต์) / แปล ...",
-                label_visibility="collapsed",
-                key="vocab_search_input"
-            )
         with vocab_search_col2:
-            vocab_search_clear = st.button("✕ ล้าง", use_container_width=True, key="vocab_search_clear")
-            if vocab_search_clear:
-                st.session_state.vocab_search_input = ""
+            if st.button("✕ ล้าง", use_container_width=True, key="vocab_search_clear"):
+                st.session_state.vocab_search_clear_flag = True
                 st.rerun()
+
+        # ถ้า flag ล้างอยู่ ให้ใส่ value="" แทน key-based widget
+        with vocab_search_col1:
+            if st.session_state.vocab_search_clear_flag:
+                st.session_state.vocab_search_clear_flag = False
+                vocab_query = st.text_input(
+                    "ค้นหา",
+                    value="",
+                    placeholder="พิมพ์ id / คำจีน / pinyin (ไม่ต้องมีวรรณยุกต์) / แปล ...",
+                    label_visibility="collapsed",
+                    key="vocab_search_input"
+                )
+            else:
+                vocab_query = st.text_input(
+                    "ค้นหา",
+                    placeholder="พิมพ์ id / คำจีน / pinyin (ไม่ต้องมีวรรณยุกต์) / แปล ...",
+                    label_visibility="collapsed",
+                    key="vocab_search_input"
+                )
 
         # กรองข้อมูลในหน้าคำศัพท์แยกจาก sidebar
         vocab_display_df = filtered_df.copy()
