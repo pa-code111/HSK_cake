@@ -21,26 +21,26 @@ HSK_LEVELS = ["1", "2", "3", "4", "5", "6", "7-9"]
 @st.cache_data
 def get_default_vocab():
     return pd.DataFrame([
-        {"simplified": "你", "pinyin": "nǐ", "meaning": "คุณ", "hsk_level": "1"},
-        {"simplified": "好", "pinyin": "hǎo", "meaning": "ดี", "hsk_level": "1"},
-        {"simplified": "谢谢", "pinyin": "xièxie", "meaning": "ขอบคุณ", "hsk_level": "1"},
-        {"simplified": "是", "pinyin": "shì", "meaning": "เป็น", "hsk_level": "1"},
-        {"simplified": "不", "pinyin": "bù", "meaning": "ไม่", "hsk_level": "1"},
-        {"simplified": "我", "pinyin": "wǒ", "meaning": "ฉัน", "hsk_level": "1"},
-        {"simplified": "吃", "pinyin": "chī", "meaning": "กิน", "hsk_level": "1"},
-        {"simplified": "喝", "pinyin": "hē", "meaning": "ดื่ม", "hsk_level": "1"},
-        {"simplified": "水", "pinyin": "shuǐ", "meaning": "น้ำ", "hsk_level": "1"},
-        {"simplified": "家", "pinyin": "jiā", "meaning": "บ้าน", "hsk_level": "1"},
-        {"simplified": "有", "pinyin": "yǒu", "meaning": "มี", "hsk_level": "1"},
-        {"simplified": "在", "pinyin": "zài", "meaning": "อยู่", "hsk_level": "1"},
-        {"simplified": "他", "pinyin": "tā", "meaning": "เขา", "hsk_level": "1"},
-        {"simplified": "她", "pinyin": "tā", "meaning": "เธอ", "hsk_level": "1"},
-        {"simplified": "一", "pinyin": "yī", "meaning": "หนึ่ง", "hsk_level": "1"},
-        {"simplified": "二", "pinyin": "èr", "meaning": "สอง", "hsk_level": "1"},
-        {"simplified": "三", "pinyin": "sān", "meaning": "สาม", "hsk_level": "1"},
-        {"simplified": "大", "pinyin": "dà", "meaning": "ใหญ่", "hsk_level": "1"},
-        {"simplified": "小", "pinyin": "xiǎo", "meaning": "เล็ก", "hsk_level": "1"},
-        {"simplified": "多", "pinyin": "duō", "meaning": "มาก", "hsk_level": "1"},
+        {"id": 1, "hsk_level": "1", "word": "你", "pinyin": "nǐ", "trans_th": "คุณ", "trans_en": "you"},
+        {"id": 2, "hsk_level": "1", "word": "好", "pinyin": "hǎo", "trans_th": "ดี", "trans_en": "good"},
+        {"id": 3, "hsk_level": "1", "word": "谢谢", "pinyin": "xièxie", "trans_th": "ขอบคุณ", "trans_en": "thank you"},
+        {"id": 4, "hsk_level": "1", "word": "是", "pinyin": "shì", "trans_th": "เป็น", "trans_en": "to be"},
+        {"id": 5, "hsk_level": "1", "word": "不", "pinyin": "bù", "trans_th": "ไม่", "trans_en": "not"},
+        {"id": 6, "hsk_level": "1", "word": "我", "pinyin": "wǒ", "trans_th": "ฉัน", "trans_en": "I"},
+        {"id": 7, "hsk_level": "1", "word": "吃", "pinyin": "chī", "trans_th": "กิน", "trans_en": "to eat"},
+        {"id": 8, "hsk_level": "1", "word": "喝", "pinyin": "hē", "trans_th": "ดื่ม", "trans_en": "to drink"},
+        {"id": 9, "hsk_level": "1", "word": "水", "pinyin": "shuǐ", "trans_th": "น้ำ", "trans_en": "water"},
+        {"id": 10, "hsk_level": "1", "word": "家", "pinyin": "jiā", "trans_th": "บ้าน", "trans_en": "home"},
+        {"id": 11, "hsk_level": "1", "word": "有", "pinyin": "yǒu", "trans_th": "มี", "trans_en": "to have"},
+        {"id": 12, "hsk_level": "1", "word": "在", "pinyin": "zài", "trans_th": "อยู่", "trans_en": "at/in"},
+        {"id": 13, "hsk_level": "1", "word": "他", "pinyin": "tā", "trans_th": "เขา", "trans_en": "he"},
+        {"id": 14, "hsk_level": "1", "word": "她", "pinyin": "tā", "trans_th": "เธอ", "trans_en": "she"},
+        {"id": 15, "hsk_level": "1", "word": "一", "pinyin": "yī", "trans_th": "หนึ่ง", "trans_en": "one"},
+        {"id": 16, "hsk_level": "1", "word": "二", "pinyin": "èr", "trans_th": "สอง", "trans_en": "two"},
+        {"id": 17, "hsk_level": "1", "word": "三", "pinyin": "sān", "trans_th": "สาม", "trans_en": "three"},
+        {"id": 18, "hsk_level": "1", "word": "大", "pinyin": "dà", "trans_th": "ใหญ่", "trans_en": "big"},
+        {"id": 19, "hsk_level": "1", "word": "xiǎo", "pinyin": "xiǎo", "trans_th": "เล็ก", "trans_en": "small"},
+        {"id": 20, "hsk_level": "1", "word": "多", "pinyin": "duō", "trans_th": "มาก", "trans_en": "many"},
     ])
 
 
@@ -174,17 +174,18 @@ uploaded = st.sidebar.file_uploader("อัปโหลดไฟล์ CSV/Excel
 
 def map_vocab_columns(df_raw):
     cols = set(df_raw.columns)
-    if {"word", "trans_th", "level"}.issubset(cols):
+    if {"word", "trans_th", "hsk_level"}.issubset(cols):
         out = pd.DataFrame()
         out["id"] = df_raw["id"] if "id" in cols else range(1, len(df_raw) + 1)
-        out["simplified"] = df_raw["word"]
+        out["hsk_level"] = df_raw["hsk_level"] if "hsk_level" in cols else df_raw["level"] if "level" in cols else ""
+        out["word"] = df_raw["word"]
         out["pinyin"] = df_raw["pinyin"] if "pinyin" in cols else ""
-        out["meaning"] = df_raw["trans_th"]
-        out["hsk_level"] = df_raw["level"]
+        out["trans_th"] = df_raw["trans_th"]
+        out["trans_en"] = df_raw["trans_en"] if "trans_en" in cols else ""
+        if "pos_en" in cols:
+            out["pos_en"] = df_raw["pos_en"]
         if "pos_th" in cols:
-            out["pos"] = df_raw["pos_th"]
-        elif "pos_en" in cols:
-            out["pos"] = df_raw["pos_en"]
+            out["pos_th"] = df_raw["pos_th"]
         return out
     return None
 
@@ -205,7 +206,7 @@ if uploaded is not None:
         if mapped is not None:
             df = mapped
             break
-        if {"simplified", "pinyin", "meaning", "hsk_level"}.issubset(df_raw.columns):
+        if {"word", "pinyin", "trans_th", "hsk_level"}.issubset(df_raw.columns):
             df = df_raw
             break
     if df is None:
@@ -234,20 +235,23 @@ df['hsk_level'] = df['hsk_level'].apply(normalize_level)
 if "col_mapping" not in st.session_state:
     st.session_state.col_mapping = {
         "id": "id" if "id" in df.columns else None,
-        "simplified": "simplified" if "simplified" in df.columns else "word" if "word" in df.columns else None,
-        "pinyin": "pinyin" if "pinyin" in df.columns else None,
-        "meaning": "meaning" if "meaning" in df.columns else "trans_th" if "trans_th" in df.columns else None,
         "hsk_level": "hsk_level" if "hsk_level" in df.columns else "level" if "level" in df.columns else None,
-        "pos": "pos_th" if "pos_th" in df.columns else "pos_en" if "pos_en" in df.columns else "pos" if "pos" in df.columns else None,
+        "word": "word" if "word" in df.columns else "simplified" if "simplified" in df.columns else None,
+        "pos_en": "pos_en" if "pos_en" in df.columns else None,
+        "pinyin": "pinyin" if "pinyin" in df.columns else None,
+        "trans_th": "trans_th" if "trans_th" in df.columns else "meaning" if "meaning" in df.columns else None,
+        "trans_en": "trans_en" if "trans_en" in df.columns else None,
     }
 
 if "col_display_toggle" not in st.session_state:
     st.session_state.col_display_toggle = {
         "id": True,
-        "pinyin": True,
-        "meaning": True,
         "hsk_level": True,
-        "pos": bool(st.session_state.col_mapping.get("pos")),
+        "word": True,
+        "pos_en": bool(st.session_state.col_mapping.get("pos_en")),
+        "pinyin": True,
+        "trans_th": True,
+        "trans_en": False,
     }
 
 if "col_mapping_show" not in st.session_state:
@@ -268,38 +272,53 @@ if st.session_state.col_mapping_show:
     new_id = st.sidebar.selectbox("ID (เลขที่)", avail_cols, index=avail_cols.index(m.get("id")) if m.get("id") in avail_cols else 0, key="sel_id")
     st.session_state.col_mapping["id"] = new_id if new_id != "(ไม่ใช้)" else None
 
-    new_pin = st.sidebar.selectbox("พินอิน", avail_cols, index=avail_cols.index(m.get("pinyin")) if m.get("pinyin") in avail_cols else 0, key="sel_pin")
-    st.session_state.col_mapping["pinyin"] = new_pin if new_pin != "(ไม่ใช้)" else None
-
-    new_mean = st.sidebar.selectbox("คำแปล", avail_cols, index=avail_cols.index(m.get("meaning")) if m.get("meaning") in avail_cols else 0, key="sel_mean")
-    st.session_state.col_mapping["meaning"] = new_mean if new_mean != "(ไม่ใช้)" else None
-
     new_hsk = st.sidebar.selectbox("HSK Level", avail_cols, index=avail_cols.index(m.get("hsk_level")) if m.get("hsk_level") in avail_cols else 0, key="sel_hsk")
     st.session_state.col_mapping["hsk_level"] = new_hsk if new_hsk != "(ไม่ใช้)" else None
 
-    new_pos = st.sidebar.selectbox("ชนิดคำ", avail_cols, index=avail_cols.index(m.get("pos")) if m.get("pos") in avail_cols else 0, key="sel_pos")
-    st.session_state.col_mapping["pos"] = new_pos if new_pos != "(ไม่ใช้)" else None
+    new_word = st.sidebar.selectbox("คำจีน", avail_cols, index=avail_cols.index(m.get("word")) if m.get("word") in avail_cols else 0, key="sel_word")
+    st.session_state.col_mapping["word"] = new_word if new_word != "(ไม่ใช้)" else None
+
+    new_pos = st.sidebar.selectbox("ชนิดคำ (EN)", avail_cols, index=avail_cols.index(m.get("pos_en")) if m.get("pos_en") in avail_cols else 0, key="sel_pos")
+    st.session_state.col_mapping["pos_en"] = new_pos if new_pos != "(ไม่ใช้)" else None
+
+    new_pin = st.sidebar.selectbox("พินอิน", avail_cols, index=avail_cols.index(m.get("pinyin")) if m.get("pinyin") in avail_cols else 0, key="sel_pin")
+    st.session_state.col_mapping["pinyin"] = new_pin if new_pin != "(ไม่ใช้)" else None
+
+    new_trans_th = st.sidebar.selectbox("แปลไทย", avail_cols, index=avail_cols.index(m.get("trans_th")) if m.get("trans_th") in avail_cols else 0, key="sel_trans_th")
+    st.session_state.col_mapping["trans_th"] = new_trans_th if new_trans_th != "(ไม่ใช้)" else None
+
+    new_trans_en = st.sidebar.selectbox("แปลอังกฤษ", avail_cols, index=avail_cols.index(m.get("trans_en")) if m.get("trans_en") in avail_cols else 0, key="sel_trans_en")
+    st.session_state.col_mapping["trans_en"] = new_trans_en if new_trans_en != "(ไม่ใช้)" else None
 
     st.sidebar.markdown("**คอลัมน์ที่แสดง:**")
     st.session_state.col_display_toggle["id"] = st.sidebar.checkbox("ID", st.session_state.col_display_toggle.get("id", True), key="tog_id")
-    st.session_state.col_display_toggle["pinyin"] = st.sidebar.checkbox("พินอิน", st.session_state.col_display_toggle.get("pinyin", True), key="tog_pin")
-    st.session_state.col_display_toggle["meaning"] = st.sidebar.checkbox("คำแปล", st.session_state.col_display_toggle.get("meaning", True), key="tog_mean")
     st.session_state.col_display_toggle["hsk_level"] = st.sidebar.checkbox("HSK", st.session_state.col_display_toggle.get("hsk_level", True), key="tog_hsk")
-    if st.session_state.col_mapping.get("pos"):
-        st.session_state.col_display_toggle["pos"] = st.sidebar.checkbox("ชนิดคำ", st.session_state.col_display_toggle.get("pos", False), key="tog_pos")
+    st.session_state.col_display_toggle["word"] = st.sidebar.checkbox("คำจีน", st.session_state.col_display_toggle.get("word", True), key="tog_word")
+    st.session_state.col_display_toggle["pos_en"] = st.sidebar.checkbox("ชนิดคำ", st.session_state.col_display_toggle.get("pos_en", False), key="tog_pos")
+    st.session_state.col_display_toggle["pinyin"] = st.sidebar.checkbox("พินอิน", st.session_state.col_display_toggle.get("pinyin", True), key="tog_pin")
+    st.session_state.col_display_toggle["trans_th"] = st.sidebar.checkbox("แปลไทย", st.session_state.col_display_toggle.get("trans_th", True), key="tog_trans_th")
+    st.session_state.col_display_toggle["trans_en"] = st.sidebar.checkbox("แปลอังกฤษ", st.session_state.col_display_toggle.get("trans_en", False), key="tog_trans_en")
 
 # ─── Sidebar: search ──────────────────────────────────────────────────────────
 st.sidebar.markdown('<div class="sidebar-section-title">🔍 ค้นหา</div>', unsafe_allow_html=True)
 query = st.sidebar.text_input("ค้นหา", placeholder="id / คำจีน / พินอิน / คำแปล", label_visibility="collapsed")
 
-if query:
+word_col = st.session_state.col_mapping.get("word", "word")
+pinyin_col = st.session_state.col_mapping.get("pinyin", "pinyin")
+trans_th_col = st.session_state.col_mapping.get("trans_th", "trans_th")
+id_col = st.session_state.col_mapping.get("id", "id")
+
+if query and word_col:
     q_toneless = strip_tones(query.strip())
     mask = (
-        (df['simplified'].astype(str).str.contains(query, case=False, na=False, regex=False))
-        | (df['pinyin'].apply(strip_tones).str.contains(q_toneless, na=False, regex=False))
-        | (df['meaning'].astype(str).str.contains(query, case=False, na=False, regex=False))
-        | (df['id'].astype(str) == query.strip())
+        (df[word_col].astype(str).str.contains(query, case=False, na=False, regex=False)) if word_col else False
     )
+    if pinyin_col:
+        mask = mask | (df[pinyin_col].apply(strip_tones).str.contains(q_toneless, na=False, regex=False))
+    if trans_th_col:
+        mask = mask | (df[trans_th_col].astype(str).str.contains(query, case=False, na=False, regex=False))
+    if id_col:
+        mask = mask | (df[id_col].astype(str) == query.strip())
     df = df[mask]
     st.sidebar.caption(f"พบ {len(df)} คำ")
 
@@ -354,13 +373,13 @@ with tab1:
             st.session_state.current_word = filtered_df.sample().iloc[0]
             st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
 
-        for k, v in [('card_flipped', False), ('audio_played', False), ('remembered', []), ('forgotten', []), ('play_history', []), ('ai_response', None), ('ai_response_word', None), ('reveal_side', False)]:
+        for k, v in [('card_flipped', False), ('audio_played', False), ('remembered', []), ('forgotten', []), ('play_history', []), ('ai_response', None), ('ai_response_word', None), ('reveal_side', False), ('last_word_id', None)]:
             if k not in st.session_state:
                 st.session_state[k] = v
 
         def next_word(feedback=None):
             w = st.session_state.current_word
-            word = w['simplified']
+            word = w[word_col] if word_col else w['word']
             if feedback == "remembered":
                 if word not in st.session_state.remembered:
                     st.session_state.remembered.append(word)
@@ -376,10 +395,10 @@ with tab1:
                 timestamp = datetime.now().strftime("%H:%M:%S")
                 st.session_state.play_history.append({
                     "เวลา": timestamp,
-                    "id": w['id'],
+                    "id": w.get(id_col, w.get('id', '')),
                     "คำจีน": word,
-                    "พินอิน": w['pinyin'],
-                    "คำแปล": w['meaning'],
+                    "พินอิน": w.get(pinyin_col, w.get('pinyin', '')),
+                    "คำแปล": w.get(trans_th_col, w.get('trans_th', '')),
                     "HSK": w['hsk_level'],
                     "ผล": "✅ จำได้" if feedback == "remembered" else "❌ จำไม่ได้",
                 })
@@ -391,10 +410,12 @@ with tab1:
             st.session_state.reveal_side = False
             st.session_state.ai_response = None
             st.session_state.ai_response_word = None
+            st.session_state.last_word_id = st.session_state.current_word.get('id')
 
         if st.session_state.audio_enabled and not st.session_state.audio_played:
             try:
-                audio_fp = speak_word(st.session_state.current_word['simplified'])
+                current_word_text = st.session_state.current_word[word_col] if word_col else st.session_state.current_word['word']
+                audio_fp = speak_word(current_word_text)
                 st.audio(audio_fp.getvalue(), format="audio/mp3", autoplay=True)
                 st.session_state.audio_played = True
             except Exception:
@@ -407,23 +428,31 @@ with tab1:
             col_right = None
 
         with col_left:
+            # ตรวจสอบว่าคำเปลี่ยนหรือไม่ ถ้าเปลี่ยนให้รีเซ็ตการพลิปการ์ด
+            current_word_id = st.session_state.current_word.get('id')
+            if st.session_state.last_word_id != current_word_id:
+                st.session_state.card_flipped = False
+                st.session_state.last_word_id = current_word_id
+            
             flipped = "flipped" if st.session_state.card_flipped else ""
             colors = get_hsk_color(st.session_state.current_word['hsk_level'])
+            
+            current_word_text = st.session_state.current_word[word_col] if word_col else st.session_state.current_word['word']
 
             st.markdown(f"""
-            <input type="checkbox" id="flip-toggle" class="flip-toggle-checkbox">
-            <label for="flip-toggle" class="flip-card {flipped}">
+            <input type="checkbox" id="flip-toggle-{current_word_id}" class="flip-toggle-checkbox">
+            <label for="flip-toggle-{current_word_id}" class="flip-card {flipped}">
                 <div class="flip-card-inner">
                     <div class="flip-card-front" style="background: linear-gradient({colors['gradient']});">
-                        <div class="id-badge">#{st.session_state.current_word['id']}</div>
+                        <div class="id-badge">#{st.session_state.current_word.get('id', '')}</div>
                         <div class="hsk-badge">HSK {st.session_state.current_word['hsk_level']}</div>
-                        <div>{st.session_state.current_word['simplified']}<div class="click-hint">แตะเพื่อเปิด</div></div>
+                        <div>{current_word_text}<div class="click-hint">แตะเพื่อเปิด</div></div>
                     </div>
                     <div class="flip-card-back" style="background: linear-gradient({colors['gradient']});">
-                        <div class="id-badge">#{st.session_state.current_word['id']}</div>
+                        <div class="id-badge">#{st.session_state.current_word.get('id', '')}</div>
                         <div class="hsk-badge">HSK {st.session_state.current_word['hsk_level']}</div>
-                        <div class="pinyin-text">{st.session_state.current_word['pinyin']}</div>
-                        <div class="meaning-text">{st.session_state.current_word['meaning']}</div>
+                        <div class="pinyin-text">{st.session_state.current_word.get(pinyin_col, st.session_state.current_word.get('pinyin', ''))}</div>
+                        <div class="meaning-text">{st.session_state.current_word.get(trans_th_col, st.session_state.current_word.get('trans_th', ''))}</div>
                     </div>
                 </div>
             </label>
@@ -442,7 +471,8 @@ with tab1:
             b1, b2, b3 = st.columns(3)
             with b1:
                 if st.button("🔊 ฟังเสียง", use_container_width=True, key="replay_btn"):
-                    audio_fp = speak_word(st.session_state.current_word['simplified'])
+                    current_word_text = st.session_state.current_word[word_col] if word_col else st.session_state.current_word['word']
+                    audio_fp = speak_word(current_word_text)
                     st.audio(audio_fp.getvalue(), format="audio/mp3", autoplay=True)
             with b2:
                 if st.button("⏭️ ข้าม", use_container_width=True, key="skip_btn"):
@@ -473,38 +503,37 @@ with tab1:
                         st.session_state.reveal_side = not st.session_state.reveal_side
                         st.rerun()
 
-                if st.session_state.reveal_side:
-                    pin = st.session_state.current_word['pinyin']
-                    mean = st.session_state.current_word['meaning']
-                else:
-                    pin = "●" * max(len(str(st.session_state.current_word['pinyin'])), 4)
-                    mean = "●" * max(len(str(st.session_state.current_word['meaning'])), 4)
+                current_word_text = st.session_state.current_word[word_col] if word_col else st.session_state.current_word['word']
+                pinyin_text = st.session_state.current_word.get(pinyin_col, st.session_state.current_word.get('pinyin', ''))
+                meaning_text = st.session_state.current_word.get(trans_th_col, st.session_state.current_word.get('trans_th', ''))
 
-                st.markdown(f"- 🇨🇳 {st.session_state.current_word['simplified']}\n- 📖 {pin}\n- 🇹🇭 {mean}")
+                if st.session_state.reveal_side:
+                    pin = pinyin_text
+                    mean = meaning_text
+                else:
+                    pin = "●" * max(len(str(pinyin_text)), 4)
+                    mean = "●" * max(len(str(meaning_text)), 4)
+
+                st.markdown(f"- 🇨🇳 {current_word_text}\n- 📖 {pin}\n- 🇹🇭 {mean}")
 
                 if st.button("🆓 แปลฟรี", use_container_width=True, key="translate_btn"):
                     with st.spinner("..."):
-                        trans = free_translate(st.session_state.current_word['simplified'], "zh-CN", "th")
+                        trans = free_translate(current_word_text, "zh-CN", "th")
                     st.session_state.ai_response = f"**แปล:** {trans}" if trans else "⚠️ แปลไม่ได้"
-                    st.session_state.ai_response_word = st.session_state.current_word['simplified']
+                    st.session_state.ai_response_word = current_word_text
 
-                if st.session_state.ai_response and st.session_state.ai_response_word == st.session_state.current_word['simplified']:
+                if st.session_state.ai_response and st.session_state.ai_response_word == current_word_text:
                     st.divider()
                     st.markdown(st.session_state.ai_response)
 
 with tab2:
     if not filtered_df.empty:
         disp_cols = []
-        if st.session_state.col_display_toggle.get("id") and st.session_state.col_mapping.get("id"):
-            disp_cols.append(st.session_state.col_mapping["id"])
-        if st.session_state.col_display_toggle.get("pinyin") and st.session_state.col_mapping.get("pinyin"):
-            disp_cols.append(st.session_state.col_mapping["pinyin"])
-        if st.session_state.col_display_toggle.get("meaning") and st.session_state.col_mapping.get("meaning"):
-            disp_cols.append(st.session_state.col_mapping["meaning"])
-        if st.session_state.col_display_toggle.get("hsk_level") and st.session_state.col_mapping.get("hsk_level"):
-            disp_cols.append(st.session_state.col_mapping["hsk_level"])
-        if st.session_state.col_display_toggle.get("pos") and st.session_state.col_mapping.get("pos"):
-            disp_cols.append(st.session_state.col_mapping["pos"])
+        col_order = ["id", "hsk_level", "word", "pos_en", "pinyin", "trans_th", "trans_en"]
+        
+        for col_key in col_order:
+            if st.session_state.col_display_toggle.get(col_key) and st.session_state.col_mapping.get(col_key):
+                disp_cols.append(st.session_state.col_mapping[col_key])
 
         show_cols = disp_cols if disp_cols else list(filtered_df.columns)
         st.dataframe(filtered_df[show_cols], use_container_width=True, hide_index=True)
