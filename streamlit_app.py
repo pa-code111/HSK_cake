@@ -564,9 +564,29 @@ with tab1:
 
 with tab2:
     if not filtered_df.empty:
+        # Search in current page
+        st.markdown('<div class="sidebar-section-title">🔍 ค้นหาในหน้านี้</div>', unsafe_allow_html=True)
+        local_query = st.text_input("ค้นหาคำในหน้าปัจจุบัน", placeholder="ค้นหา...", key="tab2_search")
+        
+        page_df_search = filtered_df
+        if local_query:
+            q_toneless = strip_tones(local_query.strip())
+            search_mask = pd.Series([False] * len(filtered_df))
+            
+            if word_col and word_col in filtered_df.columns:
+                search_mask = search_mask | (filtered_df[word_col].astype(str).str.contains(local_query, case=False, na=False, regex=False))
+            if pinyin_col and pinyin_col in filtered_df.columns:
+                search_mask = search_mask | (filtered_df[pinyin_col].apply(strip_tones).str.contains(q_toneless, na=False, regex=False))
+            if trans_th_col and trans_th_col in filtered_df.columns:
+                search_mask = search_mask | (filtered_df[trans_th_col].astype(str).str.contains(local_query, case=False, na=False, regex=False))
+            if id_col and id_col in filtered_df.columns:
+                search_mask = search_mask | (filtered_df[id_col].astype(str).str.contains(local_query, case=False, na=False, regex=False))
+            
+            page_df_search = filtered_df[search_mask]
+        
         # Pagination
         items_per_page = 100
-        total_items = len(filtered_df)
+        total_items = len(page_df_search)
         total_pages = (total_items + items_per_page - 1) // items_per_page
         
         if "vocab_page" not in st.session_state:
@@ -574,56 +594,75 @@ with tab2:
         
         # Ensure current page is valid
         if st.session_state.vocab_page > total_pages:
-            st.session_state.vocab_page = total_pages
+            st.session_state.vocab_page = 1 if total_pages == 0 else total_pages
         if st.session_state.vocab_page < 1:
             st.session_state.vocab_page = 1
         
-        # Display pagination controls
-        col_pg1, col_pg2, col_pg3, col_pg4, col_pg5 = st.columns([0.2, 0.2, 0.15, 0.2, 0.25])
-        
-        with col_pg1:
-            if st.button("⬅️ ก่อนหน้า", use_container_width=True):
-                st.session_state.vocab_page = max(1, st.session_state.vocab_page - 1)
-                st.rerun()
-        
-        with col_pg2:
-            if st.button("ถัดไป ➡️", use_container_width=True):
-                st.session_state.vocab_page = min(total_pages, st.session_state.vocab_page + 1)
-                st.rerun()
-        
-        with col_pg3:
-            page_input = st.number_input("หน้า", min_value=1, max_value=total_pages, value=st.session_state.vocab_page, key="page_input")
-            if page_input != st.session_state.vocab_page:
-                st.session_state.vocab_page = page_input
-                st.rerun()
-        
-        with col_pg4:
-            st.markdown(f"<div style='display:flex;align-items:center;height:100%;text-align:center;'><strong>{st.session_state.vocab_page} / {total_pages}</strong></div>", unsafe_allow_html=True)
-        
-        with col_pg5:
-            st.markdown(f"<div style='display:flex;align-items:center;height:100%;text-align:right;'><small>รวม {total_items} คำ</small></div>", unsafe_allow_html=True)
-        
-        st.divider()
-        
-        # Get current page data
-        start_idx = (st.session_state.vocab_page - 1) * items_per_page
-        end_idx = start_idx + items_per_page
-        page_df = filtered_df.iloc[start_idx:end_idx]
-        
-        # Display columns
-        disp_cols = []
-        col_order = ["id", "hsk_level", "word", "pinyin", "pos_en", "pos_th", "pos_zh", "trans_th", "trans_en"]
-        
-        for col_key in col_order:
-            if st.session_state.col_display_toggle.get(col_key) and st.session_state.col_mapping.get(col_key):
-                disp_cols.append(st.session_state.col_mapping[col_key])
+        if total_pages > 0:
+            # Display pagination controls
+            col_pg1, col_pg2, col_pg3, col_pg4, col_pg5 = st.columns([0.2, 0.2, 0.15, 0.2, 0.25])
+            
+            with col_pg1:
+                if st.button("⬅️ ก่อนหน้า", use_container_width=True, key="prev_page"):
+                    st.session_state.vocab_page = max(1, st.session_state.vocab_page - 1)
+                    st.rerun()
+            
+            with col_pg2:
+                if st.button("ถัดไป ➡️", use_container_width=True, key="next_page"):
+                    st.session_state.vocab_page = min(total_pages, st.session_state.vocab_page + 1)
+                    st.rerun()
+            
+            with col_pg3:
+                page_input = st.number_input("หน้า", min_value=1, max_value=total_pages, value=st.session_state.vocab_page, key="page_input")
+                if page_input != st.session_state.vocab_page:
+                    st.session_state.vocab_page = page_input
+                    st.rerun()
+            
+            with col_pg4:
+                st.markdown(f"<div style='display:flex;align-items:center;height:100%;text-align:center;'><strong>{st.session_state.vocab_page} / {total_pages}</strong></div>", unsafe_allow_html=True)
+            
+            with col_pg5:
+                st.markdown(f"<div style='display:flex;align-items:center;height:100%;text-align:right;'><small>รวม {total_items} คำ</small></div>", unsafe_allow_html=True)
+            
+            st.divider()
+            
+            # Get current page data
+            start_idx = (st.session_state.vocab_page - 1) * items_per_page
+            end_idx = start_idx + items_per_page
+            page_df = page_df_search.iloc[start_idx:end_idx].copy()
+            
+            # Display columns
+            disp_cols = []
+            col_order = ["id", "hsk_level", "word", "pinyin", "pos_en", "pos_th", "pos_zh", "trans_th", "trans_en"]
+            
+            for col_key in col_order:
+                if st.session_state.col_display_toggle.get(col_key) and st.session_state.col_mapping.get(col_key):
+                    disp_cols.append(st.session_state.col_mapping[col_key])
 
-        show_cols = disp_cols if disp_cols else list(page_df.columns)
-        st.dataframe(page_df[show_cols], use_container_width=True, hide_index=True)
-        
-        # Download button
-        csv = filtered_df[show_cols].to_csv(index=False).encode('utf-8')
-        st.download_button("⬇️ ดาวน์โหลด CSV (ทั้งหมด)", csv, 'hsk_list.csv', 'text/csv')
+            show_cols = disp_cols if disp_cols else list(page_df.columns)
+            
+            # Add translate button column if word column exists
+            if word_col and word_col in page_df.columns:
+                st.markdown("**คลิกคำเพื่อแปล:**")
+                for idx, row in page_df.iterrows():
+                    col_word, col_trans = st.columns([0.3, 0.7])
+                    with col_word:
+                        word_text = str(row[word_col])
+                        trans_url = f"https://translate.google.com/?sl=zh-CN&tl=th&text={urllib.parse.quote(word_text)}"
+                        st.markdown(f"[🌐 {word_text}]({trans_url})", unsafe_allow_html=False)
+                    with col_trans:
+                        st.write(str(row.get(trans_th_col, "")))
+                
+                st.divider()
+            
+            # Display dataframe
+            st.dataframe(page_df[show_cols], use_container_width=True, hide_index=True)
+            
+            # Download button
+            csv = page_df_search[show_cols].to_csv(index=False).encode('utf-8')
+            st.download_button("⬇️ ดาวน์โหลด CSV (ทั้งหมด)", csv, 'hsk_list.csv', 'text/csv')
+        else:
+            st.info("ไม่พบคำที่ค้นหา")
     else:
         st.info("ไม่มีคำในเลเวลที่เลือก")
 
