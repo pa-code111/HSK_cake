@@ -5,6 +5,7 @@ import io
 import requests
 import urllib.parse
 import unicodedata
+import re
 from datetime import datetime
 from functools import lru_cache
 
@@ -59,10 +60,52 @@ def speak_word(text):
 
 
 def normalize_level(level):
+    """
+    Normalize a raw hsk_level value into its PRIMARY level for filtering,
+    coloring, grouping, etc.
+
+    Some rows in the source data encode "also appears in" levels using a
+    parenthesis suffix, e.g.:
+        "1(2)"      -> primary level 1, word also appears in level 2
+        "1(2)(4)"   -> primary level 1, also appears in levels 2 and 4
+        "2(7-9)"    -> primary level 2, also appears in level 7-9
+
+    For all filtering/grouping/color purposes we only care about the
+    PRIMARY level (the part before the first '('). The full original
+    string (e.g. "1(2)") is preserved separately by split_level_label()
+    so it can still be *displayed* to the user.
+    """
     s = str(level).strip()
-    if s in ("7", "8", "9", "7-9", "7-9级"):
+    # Take only the primary part, before any parenthesis suffixes.
+    primary = s.split("(")[0].strip()
+    if primary in ("7", "8", "9", "7-9", "7-9级"):
         return "7-9"
-    return s
+    return primary
+
+
+def split_level_label(level):
+    """
+    Split a raw hsk_level value into:
+      - primary: the normalized primary level used for filtering/color
+                 (e.g. "1")
+      - extra:   the raw parenthesis suffix as written in the data,
+                 if any (e.g. "(2)", "(2)(4)", "" if none)
+      - label:   a short display label that always shows the primary
+                 level but keeps the "also appears in" info visible,
+                 e.g. "1" -> "1", "1(2)" -> "1 (2)", "1(2)(4)" -> "1 (2)(4)"
+
+    This lets the UI always group/color the card by its primary level
+    while still telling the user about the "1(2)"-style alternate levels.
+    """
+    s = str(level).strip()
+    primary_raw = s.split("(")[0].strip()
+    primary = normalize_level(primary_raw)
+
+    m = re.search(r"(\(.*\))", s)
+    extra = m.group(1) if m else ""
+
+    label = f"{primary} {extra}".strip() if extra else primary
+    return primary, extra, label
 
 
 def strip_tones(text):
@@ -256,7 +299,19 @@ if df.empty:
     st.error("ไฟล์ CSV ว่างเปล่า")
     st.stop()
 
-df['hsk_level'] = df['hsk_level'].apply(normalize_level)
+# ─── HSK level handling ───────────────────────────────────────────────────
+# Some rows have a "1(2)"-style raw value: the word's PRIMARY level is 1,
+# but it also appears in level 2 (and possibly more, e.g. "1(2)(4)").
+# We keep the original raw string ("hsk_level_raw") for display,
+# normalize "hsk_level" to the primary level only (used for
+# filtering/grouping/coloring), and build a friendly display label
+# ("hsk_level_label", e.g. "1 (2)") plus the bare "extra" suffix
+# ("hsk_level_extra", e.g. "(2)") for badges/tooltips.
+df['hsk_level_raw'] = df['hsk_level'].astype(str)
+_split = df['hsk_level_raw'].apply(split_level_label)
+df['hsk_level'] = _split.apply(lambda t: t[0])          # primary level only, e.g. "1"
+df['hsk_level_extra'] = _split.apply(lambda t: t[1])     # e.g. "(2)" or ""
+df['hsk_level_label'] = _split.apply(lambda t: t[2])     # e.g. "1 (2)"
 
 # Pre-compute toneless pinyin once. Both the sidebar search and the tab2
 # search do fuzzy (tone-insensitive) pinyin matching on every keystroke
@@ -462,7 +517,7 @@ with tab1:
                     "คำจีน": word,
                     "พินอิน": w.get(pinyin_col, w.get('pinyin', '')),
                     "คำแปล": w.get(trans_th_col, w.get('trans_th', '')),
-                    "HSK": w['hsk_level'],
+                    "HSK": w.get('hsk_level_label', w['hsk_level']),
                     "ผล": "✅ จำได้" if feedback == "remembered" else "❌ จำไม่ได้",
                 })
             
@@ -505,6 +560,11 @@ with tab1:
             colors = get_hsk_color(st.session_state.current_word['hsk_level'])
             current_word_text = st.session_state.current_word[word_col] if word_col else st.session_state.current_word['word']
             flip_gen = st.session_state.get('flip_generation', 0)
+            # แสดง label เต็ม เช่น "1 (2)" แทนแค่ "1" เพื่อบอกว่าคำนี้
+            # มีระดับหลักเป็น 1 แต่ปรากฏใน HSK 2 ด้วย
+            current_hsk_label = st.session_state.current_word.get(
+                'hsk_level_label', st.session_state.current_word['hsk_level']
+            )
 
             import streamlit.components.v1 as components
             components.html(f"""
@@ -585,13 +645,13 @@ body {{ background:transparent; }}
     <div class="flip-card-inner">
         <div class="flip-card-front">
             <div class="badge id-b">#{st.session_state.current_word.get('id','')}</div>
-            <div class="badge hsk-b">HSK {st.session_state.current_word['hsk_level']}</div>
+            <div class="badge hsk-b">HSK {current_hsk_label}</div>
             <div>{current_word_text}</div>
             <div class="hint">แตะเพื่อเปิด</div>
         </div>
         <div class="flip-card-back">
             <div class="badge id-b">#{st.session_state.current_word.get('id','')}</div>
-            <div class="badge hsk-b">HSK {st.session_state.current_word['hsk_level']}</div>
+            <div class="badge hsk-b">HSK {current_hsk_label}</div>
             <div class="pinyin">{st.session_state.current_word.get(pinyin_col, st.session_state.current_word.get('pinyin',''))}</div>
             <div class="meaning">{st.session_state.current_word.get(trans_th_col, st.session_state.current_word.get('trans_th',''))}</div>
         </div>
@@ -793,7 +853,7 @@ with tab2:
 
             start_idx = (st.session_state.vocab_page - 1) * items_per_page
             end_idx = start_idx + items_per_page
-            page_df = vocab_display_df.iloc[start_idx:end_idx]
+            page_df = vocab_display_df.iloc[start_idx:end_idx].copy()
 
             # columns ที่แสดง
             disp_cols = []
@@ -802,10 +862,18 @@ with tab2:
                 if st.session_state.col_display_toggle.get(col_key) and st.session_state.col_mapping.get(col_key):
                     disp_cols.append(st.session_state.col_mapping[col_key])
             show_cols = disp_cols if disp_cols else [c for c in page_df.columns if c != '_pinyin_toneless']
-            
+
+            # ถ้าคอลัมน์ hsk_level อยู่ในรายการที่จะแสดง ให้สลับไปแสดง
+            # "hsk_level_label" แทน (เช่น "1 (2)") เพื่อให้เห็นทั้งระดับหลัก
+            # และระดับที่ปรากฏเพิ่มเติม โดยยังคงหัวคอลัมน์เดิมไว้
+            display_page_df = page_df
+            if "hsk_level" in show_cols and "hsk_level_label" in page_df.columns:
+                display_page_df = page_df.copy()
+                display_page_df["hsk_level"] = display_page_df["hsk_level_label"]
+
             # dataframe แบบเลือก row ได้ → คลิกแล้วแปลคำได้เลย
             selection = st.dataframe(
-                page_df[show_cols],
+                display_page_df[show_cols],
                 use_container_width=True,
                 hide_index=True,
                 on_select="rerun",
