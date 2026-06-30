@@ -224,18 +224,21 @@ def map_vocab_columns(df_raw):
         out["pinyin"] = df_raw["pinyin"] if "pinyin" in cols else ""
         out["trans_th"] = df_raw["trans_th"]
         out["trans_en"] = df_raw["trans_en"] if "trans_en" in cols else ""
-        if "pos_en" in cols:
-            out["pos_en"] = df_raw["pos_en"]
-        if "pos_th" in cols:
-            out["pos_th"] = df_raw["pos_th"]
-        if "pos_zh" in cols:
-            out["pos_zh"] = df_raw["pos_zh"]
-        if "example_zh" in cols:
-            out["example_zh"] = df_raw["example_zh"]
-        if "example_th" in cols:
-            out["example_th"] = df_raw["example_th"]
-        if "example_en" in cols:
-            out["example_en"] = df_raw["example_en"]
+        
+        if "pos_en" in cols: out["pos_en"] = df_raw["pos_en"]
+        if "pos_th" in cols: out["pos_th"] = df_raw["pos_th"]
+        if "pos_zh" in cols: out["pos_zh"] = df_raw["pos_zh"]
+        
+        # แก้ปัญหาพิมพ์ตกตัว e (exampl_zh)
+        if "example_zh" in cols: out["example_zh"] = df_raw["example_zh"]
+        elif "exampl_zh" in cols: out["example_zh"] = df_raw["exampl_zh"]
+        
+        if "example_th" in cols: out["example_th"] = df_raw["example_th"]
+        elif "exampl_th" in cols: out["example_th"] = df_raw["exampl_th"]
+        
+        if "example_en" in cols: out["example_en"] = df_raw["example_en"]
+        elif "exampl_en" in cols: out["example_en"] = df_raw["exampl_en"]
+
         return out
     return None
 
@@ -329,9 +332,9 @@ def _auto_detect_col_mapping():
         "pinyin": _find_col(cols, ["pinyin"]),
         "trans_th": _find_col(cols, ["trans_th", "meaning"]),
         "trans_en": _find_col(cols, ["trans_en"]),
-        "example_zh": _find_col(cols, ["example_zh", "example_cn", "exzh", "ex_zh", "examplezh"]),
-        "example_th": _find_col(cols, ["example_th", "exth", "ex_th", "exampleth"]),
-        "example_en": _find_col(cols, ["example_en", "exen", "ex_en", "exampleen"]),
+        "example_zh": _find_col(cols, ["example_zh", "example_cn", "exzh", "ex_zh", "examplezh", "exampl_zh"]),
+        "example_th": _find_col(cols, ["example_th", "exth", "ex_th", "exampleth", "exampl_th"]),
+        "example_en": _find_col(cols, ["example_en", "exen", "ex_en", "exampleen", "exampl_en"]),
     }
 
 if "col_mapping" not in st.session_state or st.session_state.get("col_mapping_cols_signature") != _current_cols_signature:
