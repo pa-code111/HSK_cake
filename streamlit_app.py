@@ -372,7 +372,7 @@ if "col_display_toggle" not in st.session_state:
         "trans_en": False,
         "example_zh": True,
         "example_th": True,
-        "example_en": False,
+        "example_en": True,
     }
 
 if "col_mapping_show" not in st.session_state:
@@ -446,22 +446,40 @@ example_th_col = st.session_state.col_mapping.get("example_th")
 example_en_col = st.session_state.col_mapping.get("example_en")
 
 
+def _clean_val(val):
+    """Return a stripped string value, or None if empty/NaN/missing."""
+    if val is None:
+        return None
+    s = str(val).strip()
+    if not s or s.lower() == "nan":
+        return None
+    return s
+
+
+def get_example_value(row, lang):
+    """Get the cleaned example-sentence value for a given language
+    ('zh' / 'th' / 'en') from a row, respecting the sidebar toggle and
+    the current column mapping. Returns None if not available/toggled off."""
+    col = {"zh": example_zh_col, "th": example_th_col, "en": example_en_col}.get(lang)
+    toggle_key = f"example_{lang}"
+    if not col or not st.session_state.col_display_toggle.get(toggle_key):
+        return None
+    row_keys = row.index if hasattr(row, "index") else row.keys()
+    if col not in row_keys:
+        return None
+    return _clean_val(row.get(col, ""))
+
+
 def get_examples_html(row):
-    """Build the HTML snippet (zero or more lines) for whichever example
-    columns are mapped + toggled on, given a row (dict-like)."""
+    """Build a list of display lines (ZH, TH, EN order) for whichever
+    example columns are mapped + toggled on, given a row (dict-like).
+    Used for the flashcard back, where everything is already revealed."""
     lines = []
-    if st.session_state.col_display_toggle.get("example_zh") and example_zh_col:
-        val = row.get(example_zh_col, "")
-        if val and str(val).strip() and str(val).lower() != "nan":
-            lines.append(f"🇨🇳 {val}")
-    if st.session_state.col_display_toggle.get("example_th") and example_th_col:
-        val = row.get(example_th_col, "")
-        if val and str(val).strip() and str(val).lower() != "nan":
-            lines.append(f"🇹🇭 {val}")
-    if st.session_state.col_display_toggle.get("example_en") and example_en_col:
-        val = row.get(example_en_col, "")
-        if val and str(val).strip() and str(val).lower() != "nan":
-            lines.append(f"🇬🇧 {val}")
+    flags = {"zh": "🇨🇳", "th": "🇹🇭", "en": "🇬🇧"}
+    for lang in ("zh", "th", "en"):
+        val = get_example_value(row, lang)
+        if val:
+            lines.append(f"{flags[lang]} {val}")
     return lines
 
 # ─── Sidebar: search ──────────────────────────────────────────────────────────
@@ -796,12 +814,25 @@ body {{ background:transparent; }}
 
                 st.markdown(f"- 🇨🇳 {current_word_text}\n- 📖 {pin}\n- 🇹🇭 {mean}")
 
-                # ตัวอย่างประโยค: แสดงทันทีพร้อมคำแปล (ไม่ต้องรอกดเฉลย)
-                # เพื่อให้สอดคล้องกับพฤติกรรมของการ์ด flashcard ด้านซ้าย
-                panel_example_lines = get_examples_html(st.session_state.current_word)
-                if panel_example_lines:
+                # ตัวอย่างประโยค: ภาษาจีนเปิดให้เห็นตลอดเวลา ส่วนไทย/อังกฤษ
+                # จะถูกซ่อน (masked) จนกว่าจะกด "เฉลย" เช่นเดียวกับพินอิน/คำแปล
+                ex_zh_val = get_example_value(st.session_state.current_word, "zh")
+                ex_th_val = get_example_value(st.session_state.current_word, "th")
+                ex_en_val = get_example_value(st.session_state.current_word, "en")
+
+                ex_lines = []
+                if ex_zh_val:
+                    ex_lines.append(f"🇨🇳 {ex_zh_val}")
+                if ex_th_val:
+                    ex_th_show = ex_th_val if st.session_state.reveal_side else "●" * max(len(ex_th_val), 4)
+                    ex_lines.append(f"🇹🇭 {ex_th_show}")
+                if ex_en_val:
+                    ex_en_show = ex_en_val if st.session_state.reveal_side else "●" * max(len(ex_en_val), 4)
+                    ex_lines.append(f"🇬🇧 {ex_en_show}")
+
+                if ex_lines:
                     st.markdown("**📝 ตัวอย่างประโยค:**")
-                    for line in panel_example_lines:
+                    for line in ex_lines:
                         st.markdown(f'<div class="example-box">{line}</div>', unsafe_allow_html=True)
 
                 st.divider()
