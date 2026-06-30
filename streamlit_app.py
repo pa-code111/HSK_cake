@@ -355,20 +355,32 @@ else:
 # ค่า default การแมปคอลัมน์ใหม่ทั้งหมด แทนที่จะค้างค่าเดิมจากไฟล์ก่อนหน้า
 _current_cols_signature = tuple(sorted(df.columns.tolist()))
 
+def _norm_colname(c):
+    return str(c).strip().lower().replace(" ", "").replace("-", "_")
+
+def _find_col(df_cols, candidates):
+    norm_map = {_norm_colname(c): c for c in df_cols}
+    for cand in candidates:
+        key = _norm_colname(cand)
+        if key in norm_map:
+            return norm_map[key]
+    return None
+
 def _auto_detect_col_mapping():
+    cols = df.columns.tolist()
     return {
-        "id": "id" if "id" in df.columns else None,
-        "hsk_level": "hsk_level" if "hsk_level" in df.columns else "level" if "level" in df.columns else None,
-        "word": "word" if "word" in df.columns else "simplified" if "simplified" in df.columns else None,
-        "pos_en": "pos_en" if "pos_en" in df.columns else None,
-        "pos_th": "pos_th" if "pos_th" in df.columns else None,
-        "pos_zh": "pos_zh" if "pos_zh" in df.columns else None,
-        "pinyin": "pinyin" if "pinyin" in df.columns else None,
-        "trans_th": "trans_th" if "trans_th" in df.columns else "meaning" if "meaning" in df.columns else None,
-        "trans_en": "trans_en" if "trans_en" in df.columns else None,
-        "example_zh": "example_zh" if "example_zh" in df.columns else None,
-        "example_th": "example_th" if "example_th" in df.columns else None,
-        "example_en": "example_en" if "example_en" in df.columns else None,
+        "id": _find_col(cols, ["id"]),
+        "hsk_level": _find_col(cols, ["hsk_level", "level"]),
+        "word": _find_col(cols, ["word", "simplified"]),
+        "pos_en": _find_col(cols, ["pos_en"]),
+        "pos_th": _find_col(cols, ["pos_th"]),
+        "pos_zh": _find_col(cols, ["pos_zh"]),
+        "pinyin": _find_col(cols, ["pinyin"]),
+        "trans_th": _find_col(cols, ["trans_th", "meaning"]),
+        "trans_en": _find_col(cols, ["trans_en"]),
+        "example_zh": _find_col(cols, ["example_zh", "example_cn", "exzh", "ex_zh", "examplezh"]),
+        "example_th": _find_col(cols, ["example_th", "exth", "ex_th", "exampleth"]),
+        "example_en": _find_col(cols, ["example_en", "exen", "ex_en", "exampleen"]),
     }
 
 if "col_mapping" not in st.session_state or st.session_state.get("col_mapping_cols_signature") != _current_cols_signature:
