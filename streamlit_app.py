@@ -285,6 +285,9 @@ if uploaded is not None:
                 df_raw = pd.read_csv(uploaded, skiprows=skip, encoding="utf-8", engine="python")
             except Exception:
                 continue
+        if df_raw is None:
+            continue
+        df_raw.columns = df_raw.columns.astype(str).str.strip()
         mapped = map_vocab_columns(df_raw)
         if mapped is not None:
             df = mapped
@@ -309,6 +312,10 @@ else:
 if "id" not in df.columns:
     df = df.reset_index(drop=True)
     df["id"] = df.index + 1
+
+# กัน edge case ที่ชื่อคอลัมน์มีช่องว่างแฝงติดมา (เช่น "example_th " จาก
+# การ export Excel/Google Sheets) ซึ่งจะทำให้ auto-detect ด้านล่างหาไม่เจอ
+df.columns = df.columns.astype(str).str.strip()
 
 if df.empty:
     st.error("ไฟล์ CSV ว่างเปล่า")
