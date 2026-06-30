@@ -343,8 +343,13 @@ else:
     df['_pinyin_toneless'] = ""
 
 # ─── Initialize column mapping ────────────────────────────────────────────────
-if "col_mapping" not in st.session_state:
-    st.session_state.col_mapping = {
+# ตรวจจับว่าคอลัมน์ของไฟล์ปัจจุบันเปลี่ยนไปจากครั้งก่อนหรือไม่ (เช่น ผู้ใช้
+# เพิ่งอัปโหลดไฟล์ใหม่ที่มีคอลัมน์ example_zh/th/en) ถ้าเปลี่ยน ให้คำนวณ
+# ค่า default การแมปคอลัมน์ใหม่ทั้งหมด แทนที่จะค้างค่าเดิมจากไฟล์ก่อนหน้า
+_current_cols_signature = tuple(sorted(df.columns.tolist()))
+
+def _auto_detect_col_mapping():
+    return {
         "id": "id" if "id" in df.columns else None,
         "hsk_level": "hsk_level" if "hsk_level" in df.columns else "level" if "level" in df.columns else None,
         "word": "word" if "word" in df.columns else "simplified" if "simplified" in df.columns else None,
@@ -358,6 +363,10 @@ if "col_mapping" not in st.session_state:
         "example_th": "example_th" if "example_th" in df.columns else None,
         "example_en": "example_en" if "example_en" in df.columns else None,
     }
+
+if "col_mapping" not in st.session_state or st.session_state.get("col_mapping_cols_signature") != _current_cols_signature:
+    st.session_state.col_mapping = _auto_detect_col_mapping()
+    st.session_state.col_mapping_cols_signature = _current_cols_signature
 
 if "col_display_toggle" not in st.session_state:
     st.session_state.col_display_toggle = {
