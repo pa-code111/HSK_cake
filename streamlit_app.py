@@ -516,40 +516,48 @@ with st.sidebar.expander("🔧 เลือกคอลัมน์จาก CSV
     avail_cols = ["(ไม่ใช้)"] + sorted(df.columns.tolist())
     m = st.session_state.col_mapping
 
-    new_id = st.selectbox("ID", avail_cols, index=avail_cols.index(m.get("id")) if m.get("id") in avail_cols else 0, key="sel_id")
+    # สำคัญ: key ของแต่ละ selectbox ต้องเปลี่ยนไปตามไฟล์ที่อัปโหลด (ใช้
+    # _current_cols_signature ต่อท้าย key) ไม่งั้นจะเจอบั๊กแบบเดียวกับแท็บ
+    # นำทางเมื่อกี้ — คือ Streamlit จะยึดค่าที่เคยเลือกไว้ "ครั้งแรกที่สร้าง
+    # widget นี้" (เช่นตอนยังไม่ได้อัปโหลดไฟล์ ข้อมูลตัวอย่างไม่มีคอลัมน์
+    # example_zh/th/en เลย widget เลยค้างค่า "(ไม่ใช้)") แล้วไม่ยอมอัปเดตตาม
+    # index= ที่คำนวณใหม่อีกเลย แม้คอลัมน์ในไฟล์ใหม่จะมีอยู่จริงก็ตาม
+    _sig_tag = str(abs(hash(_current_cols_signature)))[:8]
+
+    new_id = st.selectbox("ID", avail_cols, index=avail_cols.index(m.get("id")) if m.get("id") in avail_cols else 0, key=f"sel_id_{_sig_tag}")
     st.session_state.col_mapping["id"] = new_id if new_id != "(ไม่ใช้)" else None
 
-    new_hsk = st.selectbox("HSK Level", avail_cols, index=avail_cols.index(m.get("hsk_level")) if m.get("hsk_level") in avail_cols else 0, key="sel_hsk")
+    new_hsk = st.selectbox("HSK Level", avail_cols, index=avail_cols.index(m.get("hsk_level")) if m.get("hsk_level") in avail_cols else 0, key=f"sel_hsk_{_sig_tag}")
     st.session_state.col_mapping["hsk_level"] = new_hsk if new_hsk != "(ไม่ใช้)" else None
 
-    new_word = st.selectbox("คำจีน", avail_cols, index=avail_cols.index(m.get("word")) if m.get("word") in avail_cols else 0, key="sel_word")
+    new_word = st.selectbox("คำจีน", avail_cols, index=avail_cols.index(m.get("word")) if m.get("word") in avail_cols else 0, key=f"sel_word_{_sig_tag}")
     st.session_state.col_mapping["word"] = new_word if new_word != "(ไม่ใช้)" else None
 
-    new_pos_en = st.selectbox("ชนิดคำ (EN)", avail_cols, index=avail_cols.index(m.get("pos_en")) if m.get("pos_en") in avail_cols else 0, key="sel_pos_en")
+    new_pos_en = st.selectbox("ชนิดคำ (EN)", avail_cols, index=avail_cols.index(m.get("pos_en")) if m.get("pos_en") in avail_cols else 0, key=f"sel_pos_en_{_sig_tag}")
     st.session_state.col_mapping["pos_en"] = new_pos_en if new_pos_en != "(ไม่ใช้)" else None
 
-    new_pos_th = st.selectbox("ชนิดคำ (TH)", avail_cols, index=avail_cols.index(m.get("pos_th")) if m.get("pos_th") in avail_cols else 0, key="sel_pos_th")
+    new_pos_th = st.selectbox("ชนิดคำ (TH)", avail_cols, index=avail_cols.index(m.get("pos_th")) if m.get("pos_th") in avail_cols else 0, key=f"sel_pos_th_{_sig_tag}")
     st.session_state.col_mapping["pos_th"] = new_pos_th if new_pos_th != "(ไม่ใช้)" else None
 
-    new_pos_zh = st.selectbox("ชนิดคำ (ZH)", avail_cols, index=avail_cols.index(m.get("pos_zh")) if m.get("pos_zh") in avail_cols else 0, key="sel_pos_zh")
+    new_pos_zh = st.selectbox("ชนิดคำ (ZH)", avail_cols, index=avail_cols.index(m.get("pos_zh")) if m.get("pos_zh") in avail_cols else 0, key=f"sel_pos_zh_{_sig_tag}")
     st.session_state.col_mapping["pos_zh"] = new_pos_zh if new_pos_zh != "(ไม่ใช้)" else None
 
-    new_pin = st.selectbox("พินอิน", avail_cols, index=avail_cols.index(m.get("pinyin")) if m.get("pinyin") in avail_cols else 0, key="sel_pin")
+    new_pin = st.selectbox("พินอิน", avail_cols, index=avail_cols.index(m.get("pinyin")) if m.get("pinyin") in avail_cols else 0, key=f"sel_pin_{_sig_tag}")
     st.session_state.col_mapping["pinyin"] = new_pin if new_pin != "(ไม่ใช้)" else None
 
-    new_trans_th = st.selectbox("แปลไทย", avail_cols, index=avail_cols.index(m.get("trans_th")) if m.get("trans_th") in avail_cols else 0, key="sel_trans_th")
+    new_trans_th = st.selectbox("แปลไทย", avail_cols, index=avail_cols.index(m.get("trans_th")) if m.get("trans_th") in avail_cols else 0, key=f"sel_trans_th_{_sig_tag}")
     st.session_state.col_mapping["trans_th"] = new_trans_th if new_trans_th != "(ไม่ใช้)" else None
 
-    new_trans_en = st.selectbox("แปลอังกฤษ", avail_cols, index=avail_cols.index(m.get("trans_en")) if m.get("trans_en") in avail_cols else 0, key="sel_trans_en")
+    new_trans_en = st.selectbox("แปลอังกฤษ", avail_cols, index=avail_cols.index(m.get("trans_en")) if m.get("trans_en") in avail_cols else 0, key=f"sel_trans_en_{_sig_tag}")
     st.session_state.col_mapping["trans_en"] = new_trans_en if new_trans_en != "(ไม่ใช้)" else None
 
-    new_ex_zh = st.selectbox("ตัวอย่างประโยค (ZH)", avail_cols, index=avail_cols.index(m.get("example_zh")) if m.get("example_zh") in avail_cols else 0, key="sel_ex_zh")
+    new_ex_zh = st.selectbox("ตัวอย่างประโยค (ZH)", avail_cols, index=avail_cols.index(m.get("example_zh")) if m.get("example_zh") in avail_cols else 0, key=f"sel_ex_zh_{_sig_tag}")
     st.session_state.col_mapping["example_zh"] = new_ex_zh if new_ex_zh != "(ไม่ใช้)" else None
 
-    new_ex_th = st.selectbox("ตัวอย่างประโยค (TH)", avail_cols, index=avail_cols.index(m.get("example_th")) if m.get("example_th") in avail_cols else 0, key="sel_ex_th")
+    new_ex_th = st.selectbox("ตัวอย่างประโยค (TH)", avail_cols, index=avail_cols.index(m.get("example_th")) if m.get("example_th") in avail_cols else 0, key=f"sel_ex_th_{_sig_tag}")
     st.session_state.col_mapping["example_th"] = new_ex_th if new_ex_th != "(ไม่ใช้)" else None
 
-    new_ex_en = st.selectbox("ตัวอย่างประโยค (EN)", avail_cols, index=avail_cols.index(m.get("example_en")) if m.get("example_en") in avail_cols else 0, key="sel_ex_en")
+    new_ex_en = st.selectbox("ตัวอย่างประโยค (EN)", avail_cols, index=avail_cols.index(m.get("example_en")) if m.get("example_en") in avail_cols else 0, key=f"sel_ex_en_{_sig_tag}")
     st.session_state.col_mapping["example_en"] = new_ex_en if new_ex_en != "(ไม่ใช้)" else None
 
 st.sidebar.markdown("**เลือกคอลัมน์ที่จะแสดง:**")
