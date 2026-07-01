@@ -54,11 +54,29 @@ def speak_word_bytes(text):
 
 
 def speak_word(text):
+    # Returns a fresh BytesIO each call; the underlying bytes are cached so
+    # repeated words skip the network round-trip to gTTS.
     return io.BytesIO(speak_word_bytes(text))
 
 
 def normalize_level(level):
+    """
+    Normalize a raw hsk_level value into its PRIMARY level for filtering,
+    coloring, grouping, etc.
+
+    Some rows in the source data encode "also appears in" levels using a
+    parenthesis suffix, e.g.:
+        "1(2)"      -> primary level 1, word also appears in level 2
+        "1(2)(4)"   -> primary level 1, also appears in levels 2 and 4
+        "2(7-9)"    -> primary level 2, also appears in level 7-9
+
+    For all filtering/grouping/color purposes we only care about the
+    PRIMARY level (the part before the first '('). The full original
+    string (e.g. "1(2)") is preserved separately by split_level_label()
+    so it can still be *displayed* to the user.
+    """
     s = str(level).strip()
+    # Take only the primary part, before any parenthesis suffixes.
     primary = s.split("(")[0].strip()
     if primary in ("7", "8", "9", "7-9", "7-9级"):
         return "7-9"
@@ -66,11 +84,26 @@ def normalize_level(level):
 
 
 def split_level_label(level):
+    """
+    Split a raw hsk_level value into:
+      - primary: the normalized primary level used for filtering/color
+                 (e.g. "1")
+      - extra:   the raw parenthesis suffix as written in the data,
+                 if any (e.g. "(2)", "(2)(4)", "" if none)
+      - label:   a short display label that always shows the primary
+                 level but keeps the "also appears in" info visible,
+                 e.g. "1" -> "1", "1(2)" -> "1 (2)", "1(2)(4)" -> "1 (2)(4)"
+
+    This lets the UI always group/color the card by its primary level
+    while still telling the user about the "1(2)"-style alternate levels.
+    """
     s = str(level).strip()
     primary_raw = s.split("(")[0].strip()
     primary = normalize_level(primary_raw)
+
     m = re.search(r"(\(.*\))", s)
     extra = m.group(1) if m else ""
+
     label = f"{primary} {extra}".strip() if extra else primary
     return primary, extra, label
 
@@ -205,6 +238,15 @@ st.markdown("""
     font-size: 14px;
     text-align: left;
 }
+.search-result-card {
+    background: rgba(102,126,234,0.08);
+    border: 1px solid rgba(102,126,234,0.35);
+    border-radius: 10px;
+    padding: 8px 10px;
+    margin: 6px 0;
+}
+.search-result-word { font-size: 20px; font-weight: 800; }
+.search-result-meta { font-size: 12px; opacity: 0.85; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -224,21 +266,18 @@ def map_vocab_columns(df_raw):
         out["pinyin"] = df_raw["pinyin"] if "pinyin" in cols else ""
         out["trans_th"] = df_raw["trans_th"]
         out["trans_en"] = df_raw["trans_en"] if "trans_en" in cols else ""
-        
-        if "pos_en" in cols: out["pos_en"] = df_raw["pos_en"]
-        if "pos_th" in cols: out["pos_th"] = df_raw["pos_th"]
-        if "pos_zh" in cols: out["pos_zh"] = df_raw["pos_zh"]
-        
-        # แก้ปัญหาพิมพ์ตกตัว e (exampl_zh)
-        if "example_zh" in cols: out["example_zh"] = df_raw["example_zh"]
-        elif "exampl_zh" in cols: out["example_zh"] = df_raw["exampl_zh"]
-        
-        if "example_th" in cols: out["example_th"] = df_raw["example_th"]
-        elif "exampl_th" in cols: out["example_th"] = df_raw["exampl_th"]
-        
-        if "example_en" in cols: out["example_en"] = df_raw["example_en"]
-        elif "exampl_en" in cols: out["example_en"] = df_raw["exampl_en"]
-
+        if "pos_en" in cols:
+            out["pos_en"] = df_raw["pos_en"]
+        if "pos_th" in cols:
+            out["pos_th"] = df_raw["pos_th"]
+        if "pos_zh" in cols:
+            out["pos_zh"] = df_raw["pos_zh"]
+        if "example_zh" in cols:
+            out["example_zh"] = df_raw["example_zh"]
+        if "example_th" in cols:
+            out["example_th"] = df_raw["example_th"]
+        if "example_en" in cols:
+            out["example_en"] = df_raw["example_en"]
         return out
     return None
 
@@ -283,6 +322,8 @@ if "id" not in df.columns:
     df = df.reset_index(drop=True)
     df["id"] = df.index + 1
 
+# กัน edge case ที่ชื่อคอลัมน์มีช่องว่างแฝงติดมา (เช่น "example_th " จาก
+# การ export Excel/Google Sheets) ซึ่งจะทำให้ auto-detect ด้านล่างหาไม่เจอ
 df.columns = df.columns.astype(str).str.strip()
 
 if df.empty:
@@ -290,12 +331,23 @@ if df.empty:
     st.stop()
 
 # ─── HSK level handling ───────────────────────────────────────────────────
+# Some rows have a "1(2)"-style raw value: the word's PRIMARY level is 1,
+# but it also appears in level 2 (and possibly more, e.g. "1(2)(4)").
+# We keep the original raw string ("hsk_level_raw") for display,
+# normalize "hsk_level" to the primary level only (used for
+# filtering/grouping/coloring), and build a friendly display label
+# ("hsk_level_label", e.g. "1 (2)") plus the bare "extra" suffix
+# ("hsk_level_extra", e.g. "(2)") for badges/tooltips.
 df['hsk_level_raw'] = df['hsk_level'].astype(str)
 _split = df['hsk_level_raw'].apply(split_level_label)
-df['hsk_level'] = _split.apply(lambda t: t[0])          
-df['hsk_level_extra'] = _split.apply(lambda t: t[1])     
-df['hsk_level_label'] = _split.apply(lambda t: t[2])     
+df['hsk_level'] = _split.apply(lambda t: t[0])          # primary level only, e.g. "1"
+df['hsk_level_extra'] = _split.apply(lambda t: t[1])     # e.g. "(2)" or ""
+df['hsk_level_label'] = _split.apply(lambda t: t[2])     # e.g. "1 (2)"
 
+# Pre-compute toneless pinyin once. Both the sidebar search and the tab2
+# search do fuzzy (tone-insensitive) pinyin matching on every keystroke
+# rerun; computing this column once here avoids re-running strip_tones()
+# over every row on every rerun.
 _pinyin_col_for_precompute = None
 for _candidate in ("pinyin",):
     if _candidate in df.columns:
@@ -307,41 +359,58 @@ else:
     df['_pinyin_toneless'] = ""
 
 # ─── Initialize column mapping ────────────────────────────────────────────────
+# ตรวจจับว่าคอลัมน์ของไฟล์ปัจจุบันเปลี่ยนไปจากครั้งก่อนหรือไม่ (เช่น ผู้ใช้
+# เพิ่งอัปโหลดไฟล์ใหม่ที่มีคอลัมน์ example_zh/th/en) ถ้าเปลี่ยน ให้คำนวณ
+# ค่า default การแมปคอลัมน์ใหม่ทั้งหมด แทนที่จะค้างค่าเดิมจากไฟล์ก่อนหน้า
 _current_cols_signature = tuple(sorted(df.columns.tolist()))
 
+
 def _norm_colname(c):
-    return str(c).strip().lower().replace(" ", "").replace("-", "_")
+    """Normalize a column name for fuzzy matching: lowercase, strip spaces,
+    collapse separators. This lets auto-detection match headers like
+    'Example_ZH', 'example zh', 'Example-ZH', or headers with stray
+    whitespace from Excel exports, not just an exact 'example_zh'."""
+    s = str(c).strip().lower()
+    s = re.sub(r"[\s\-]+", "_", s)
+    s = re.sub(r"_+", "_", s)
+    return s.strip("_")
+
 
 def _find_col(df_cols, candidates):
-    norm_map = {_norm_colname(c): c for c in df_cols}
+    """Find the first column in df_cols whose normalized name matches any
+    of the normalized candidate names."""
+    norm_map = {}
+    for c in df_cols:
+        norm_map.setdefault(_norm_colname(c), c)
     for cand in candidates:
         key = _norm_colname(cand)
         if key in norm_map:
             return norm_map[key]
     return None
 
+
 def _auto_detect_col_mapping():
     cols = df.columns.tolist()
     return {
         "id": _find_col(cols, ["id"]),
-        "hsk_level": _find_col(cols, ["hsk_level", "level"]),
-        "word": _find_col(cols, ["word", "simplified"]),
-        "pos_en": _find_col(cols, ["pos_en"]),
-        "pos_th": _find_col(cols, ["pos_th"]),
-        "pos_zh": _find_col(cols, ["pos_zh"]),
+        "hsk_level": _find_col(cols, ["hsk_level", "level", "hsklevel"]),
+        "word": _find_col(cols, ["word", "simplified", "hanzi", "chinese"]),
+        "pos_en": _find_col(cols, ["pos_en", "posen", "pos english"]),
+        "pos_th": _find_col(cols, ["pos_th", "posth"]),
+        "pos_zh": _find_col(cols, ["pos_zh", "poszh"]),
         "pinyin": _find_col(cols, ["pinyin"]),
-        "trans_th": _find_col(cols, ["trans_th", "meaning"]),
-        "trans_en": _find_col(cols, ["trans_en"]),
-        "example_zh": _find_col(cols, ["example_zh", "example_cn", "exzh", "ex_zh", "examplezh", "exampl_zh"]),
-        "example_th": _find_col(cols, ["example_th", "exth", "ex_th", "exampleth", "exampl_th"]),
-        "example_en": _find_col(cols, ["example_en", "exen", "ex_en", "exampleen", "exampl_en"]),
+        "trans_th": _find_col(cols, ["trans_th", "meaning", "translation_th", "thai", "trans th"]),
+        "trans_en": _find_col(cols, ["trans_en", "translation_en", "english", "trans en"]),
+        "example_zh": _find_col(cols, ["example_zh", "examplezh", "example_cn", "examplecn", "ex_zh", "exzh", "sentence_zh", "example chinese", "ตัวอย่างประโยค(zh)", "ตัวอย่างประโยค_zh"]),
+        "example_th": _find_col(cols, ["example_th", "exampleth", "ex_th", "exth", "sentence_th", "example thai", "ตัวอย่างประโยค(th)", "ตัวอย่างประโยค_th"]),
+        "example_en": _find_col(cols, ["example_en", "exampleen", "ex_en", "exen", "sentence_en", "example english", "ตัวอย่างประโยค(en)", "ตัวอย่างประโยค_en"]),
     }
+
 
 if "col_mapping" not in st.session_state or st.session_state.get("col_mapping_cols_signature") != _current_cols_signature:
     st.session_state.col_mapping = _auto_detect_col_mapping()
     st.session_state.col_mapping_cols_signature = _current_cols_signature
 
-# ค่า Default ให้ตรงตามรูปภาพ
 if "col_display_toggle" not in st.session_state:
     st.session_state.col_display_toggle = {
         "id": True,
@@ -367,7 +436,7 @@ st.sidebar.markdown('<div class="sidebar-section-title">⚙️ การตั�
 with st.sidebar.expander("🔧 เลือกคอลัมน์จาก CSV", expanded=False):
     avail_cols = ["(ไม่ใช้)"] + sorted(df.columns.tolist())
     m = st.session_state.col_mapping
-    
+
     new_id = st.selectbox("ID", avail_cols, index=avail_cols.index(m.get("id")) if m.get("id") in avail_cols else 0, key="sel_id")
     st.session_state.col_mapping["id"] = new_id if new_id != "(ไม่ใช้)" else None
 
@@ -404,8 +473,8 @@ with st.sidebar.expander("🔧 เลือกคอลัมน์จาก CSV
     new_ex_en = st.selectbox("ตัวอย่างประโยค (EN)", avail_cols, index=avail_cols.index(m.get("example_en")) if m.get("example_en") in avail_cols else 0, key="sel_ex_en")
     st.session_state.col_mapping["example_en"] = new_ex_en if new_ex_en != "(ไม่ใช้)" else None
 
-# Checkbox ใน Sidebar 
 st.sidebar.markdown("**เลือกคอลัมน์ที่จะแสดง:**")
+
 st.session_state.col_display_toggle["id"] = st.sidebar.checkbox("ID", st.session_state.col_display_toggle.get("id", True), key="tog_id")
 st.session_state.col_display_toggle["hsk_level"] = st.sidebar.checkbox("HSK", st.session_state.col_display_toggle.get("hsk_level", True), key="tog_hsk")
 st.session_state.col_display_toggle["word"] = st.sidebar.checkbox("คำจีน", st.session_state.col_display_toggle.get("word", True), key="tog_word")
@@ -417,7 +486,7 @@ st.session_state.col_display_toggle["trans_th"] = st.sidebar.checkbox("แปล
 st.session_state.col_display_toggle["trans_en"] = st.sidebar.checkbox("แปลอังกฤษ", st.session_state.col_display_toggle.get("trans_en", False), key="tog_trans_en")
 st.session_state.col_display_toggle["example_zh"] = st.sidebar.checkbox("ตัวอย่างประโยค (ZH)", st.session_state.col_display_toggle.get("example_zh", True), key="tog_ex_zh")
 st.session_state.col_display_toggle["example_th"] = st.sidebar.checkbox("ตัวอย่างประโยค (TH)", st.session_state.col_display_toggle.get("example_th", True), key="tog_ex_th")
-st.session_state.col_display_toggle["example_en"] = st.sidebar.checkbox("ตัวอย่างประโยค (EN)", st.session_state.col_display_toggle.get("example_en", True), key="tog_ex_en")
+st.session_state.col_display_toggle["example_en"] = st.sidebar.checkbox("ตัวอย่างประโยค (EN)", st.session_state.col_display_toggle.get("example_en", False), key="tog_ex_en")
 
 # ─── Get column names ─────────────────────────────────────────────────────────
 word_col = st.session_state.col_mapping.get("word", "word")
@@ -430,6 +499,7 @@ example_en_col = st.session_state.col_mapping.get("example_en")
 
 
 def _clean_val(val):
+    """Return a stripped string value, or None if empty/NaN/missing."""
     if val is None:
         return None
     s = str(val).strip()
@@ -439,6 +509,9 @@ def _clean_val(val):
 
 
 def get_example_value(row, lang):
+    """Get the cleaned example-sentence value for a given language
+    ('zh' / 'th' / 'en') from a row, respecting the sidebar toggle and
+    the current column mapping. Returns None if not available/toggled off."""
     col = {"zh": example_zh_col, "th": example_th_col, "en": example_en_col}.get(lang)
     toggle_key = f"example_{lang}"
     if not col or not st.session_state.col_display_toggle.get(toggle_key):
@@ -450,6 +523,9 @@ def get_example_value(row, lang):
 
 
 def get_examples_html(row):
+    """Build a list of display lines (ZH, TH, EN order) for whichever
+    example columns are mapped + toggled on, given a row (dict-like).
+    Used for the flashcard back, where everything is already revealed."""
     lines = []
     flags = {"zh": "🇨🇳", "th": "🇹🇭", "en": "🇬🇧"}
     for lang in ("zh", "th", "en"):
@@ -459,13 +535,51 @@ def get_examples_html(row):
     return lines
 
 # ─── Sidebar: search ──────────────────────────────────────────────────────────
-st.sidebar.markdown('<div class="sidebar-section-title">🔍 ค้นหา (กรอง Flashcard)</div>', unsafe_allow_html=True)
-query = st.sidebar.text_input("ค้นหาในทุกคอลัมน์", placeholder="id / คำจีน / พินอิน / แปล", label_visibility="collapsed")
+st.sidebar.markdown('<div class="sidebar-section-title">🔍 ค้นหา</div>', unsafe_allow_html=True)
+query = st.sidebar.text_input("ค้นหาในทุกคอลัมน์", placeholder="id / คำจีน / พินอิน / แปล", label_visibility="collapsed", key="sidebar_search_query")
+
+if "vocab_search_prefill" not in st.session_state:
+    st.session_state.vocab_search_prefill = None
+if "active_tab" not in st.session_state:
+    st.session_state.active_tab = "🎴 Flashcard"
+
+# คอลัมน์ที่จะแสดงใน preview การ์ดผลการค้นหา ให้ตรงกับฟิลด์ที่ใช้แสดงใน
+# แท็บ "📖 คำศัพท์" จริง (เรียงตามลำดับเดียวกัน + เคารพ toggle เปิด/ปิด
+# คอลัมน์จาก sidebar) แทนที่จะ hardcode แค่ word/pinyin/trans_th แบบเดิม
+_PREVIEW_COL_ORDER = ["hsk_level", "word", "pinyin", "pos_en", "pos_th", "pos_zh", "trans_th", "trans_en", "example_zh", "example_th", "example_en"]
+_PREVIEW_LABELS = {
+    "hsk_level": "HSK", "word": "🇨🇳", "pinyin": "พินอิน",
+    "pos_en": "ชนิดคำ(EN)", "pos_th": "ชนิดคำ(TH)", "pos_zh": "ชนิดคำ(ZH)",
+    "trans_th": "🇹🇭 แปล", "trans_en": "🇬🇧 แปล",
+    "example_zh": "🇨🇳 ตัวอย่าง", "example_th": "🇹🇭 ตัวอย่าง", "example_en": "🇬🇧 ตัวอย่าง",
+}
+
+
+def _sidebar_preview_fields(row):
+    """Build (label, value) pairs for one search-result row, using exactly
+    the columns currently mapped + toggled ON in the sidebar — i.e. the
+    same fields the คำศัพท์ tab would show for this row."""
+    pairs = []
+    for col_key in _PREVIEW_COL_ORDER:
+        if not st.session_state.col_display_toggle.get(col_key):
+            continue
+        actual_col = st.session_state.col_mapping.get(col_key)
+        if not actual_col or actual_col not in row.index:
+            continue
+        if col_key == "hsk_level":
+            val = row.get("hsk_level_label", row.get("hsk_level", ""))
+        else:
+            val = row.get(actual_col, "")
+        val = _clean_val(val)
+        if val:
+            pairs.append((_PREVIEW_LABELS[col_key], val))
+    return pairs
+
 
 if query:
     q_toneless = strip_tones(query.strip())
-    mask = pd.Series([False] * len(df))
-    
+    mask = pd.Series([False] * len(df), index=df.index)
+
     if st.session_state.col_display_toggle.get("id") and id_col:
         mask = mask | (df[id_col].astype(str).str.contains(query, case=False, na=False, regex=False))
     if st.session_state.col_display_toggle.get("word") and word_col:
@@ -482,29 +596,40 @@ if query:
         pos_en_col = st.session_state.col_mapping["pos_en"]
         if pos_en_col in df.columns:
             mask = mask | (df[pos_en_col].astype(str).str.contains(query, case=False, na=False, regex=False))
-    
-    df = df[mask]
-    
-    # โชว์พรีวิวผลลัพธ์ใน Sidebar
-    st.sidebar.caption(f"✅ พบ **{len(df)}** คำ (ระบบทำการกรอง Flashcard แล้ว)")
-    
-    if not df.empty:
-        st.sidebar.markdown(
-            "<div style='background-color: rgba(0,0,0,0.05); padding: 10px; border-radius: 8px; margin-top: 5px;'>", 
-            unsafe_allow_html=True
-        )
-        st.sidebar.markdown("**📌 ตัวอย่างผลลัพธ์:**")
-        
-        for _, r in df.head(5).iterrows():
-            w = r.get(word_col, "")
-            p = r.get(pinyin_col, "")
-            t = r.get(trans_th_col, "")
-            st.sidebar.markdown(f"- **{w}** `{p}`<br><span style='color: #666; font-size: 13px;'>{t}</span>", unsafe_allow_html=True)
-            
-        if len(df) > 5:
-            st.sidebar.markdown(f"<div style='font-size: 12px; margin-top: 8px; color: #888;'>... และอีก {len(df)-5} คำ<br>(ดูทั้งหมดในแท็บ '📖 คำศัพท์')</div>", unsafe_allow_html=True)
-            
-        st.sidebar.markdown("</div>", unsafe_allow_html=True)
+
+    search_results_df = df[mask]
+    st.sidebar.caption(f"พบ {len(search_results_df)} คำ")
+
+    # ── แสดงตัวอย่าง 5 คำแรกเป็นการ์ดข้อมูลแบบเดียวกับหน้า "คำศัพท์" ─────────
+    PREVIEW_SHOWN = 5
+    if len(search_results_df) == 0:
+        st.sidebar.info("ไม่พบคำที่ตรงกับการค้นหา")
+    else:
+        for _, row in search_results_df.head(PREVIEW_SHOWN).iterrows():
+            w = row.get(word_col, "") if word_col else ""
+            rid = row.get("id", "")
+
+            fields_html = "".join(
+                f'<div class="search-result-meta"><b>{lbl}:</b> {val}</div>'
+                for lbl, val in _sidebar_preview_fields(row)
+            )
+            st.sidebar.markdown(
+                f'<div class="search-result-card">'
+                f'<span class="search-result-word">{w}</span> '
+                f'<span class="search-result-meta">#{rid}</span>'
+                f'{fields_html}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            if st.sidebar.button("📖 ไปดูในหน้าคำศัพท์", key=f"goto_vocab_{rid}_{w}", use_container_width=True):
+                st.session_state.vocab_search_prefill = str(w)
+                st.session_state.active_tab = "📖 คำศัพท์"
+                st.rerun()
+
+        if len(search_results_df) > PREVIEW_SHOWN:
+            st.sidebar.caption(f"...และอีก {len(search_results_df) - PREVIEW_SHOWN} คำ — พิมพ์ให้เจาะจงขึ้น หรือกดคำใดคำหนึ่งด้านบนเพื่อไปหน้า 'คำศัพท์' แล้วดูทั้งหมด")
+
+    df = search_results_df
 
 # ─── Sidebar: level selector ────────────────────────────────────────────────
 st.sidebar.markdown('<div class="sidebar-section-title">📊 เลเวล HSK</div>', unsafe_allow_html=True)
@@ -547,16 +672,26 @@ if st.sidebar.button(ai_label, use_container_width=True, key="ai_sidebar_btn"):
     st.rerun()
 
 # ─── Tabs ─────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3 = st.tabs(["🎴 Flashcard", "📖 คำศัพท์", "📋 ประวัติ"])
+# ใช้ st.radio แทน st.tabs เพราะ st.tabs สลับแท็บจากโค้ด (เช่น กดปุ่มใน
+# sidebar) ไม่ได้ ส่วน radio ควบคุมด้วย session_state ได้ ทำให้ปุ่ม
+# "📖 ไปดูในหน้าคำศัพท์" ใน sidebar พาไปแท็บนั้นได้จริง
+_TAB_LABELS = ["🎴 Flashcard", "📖 คำศัพท์", "📋 ประวัติ"]
+active_tab_choice = st.radio(
+    "เมนู", _TAB_LABELS,
+    index=_TAB_LABELS.index(st.session_state.active_tab) if st.session_state.active_tab in _TAB_LABELS else 0,
+    horizontal=True, label_visibility="collapsed", key="active_tab_radio",
+)
+st.session_state.active_tab = active_tab_choice
+st.divider()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 1: FLASHCARD
 # ══════════════════════════════════════════════════════════════════════════════
-with tab1:
+if active_tab_choice == "🎴 Flashcard":
     if filtered_df.empty:
-        st.warning("⚠️ ไม่มีคำในเลเวลที่เลือก หรือไม่พบคำที่ค้นหา")
+        st.warning("⚠️ ไม่มีคำในเลเวลที่เลือก")
     else:
-        if 'current_word' not in st.session_state or st.session_state.get('current_word_level') not in selected_levels or (query and st.session_state.current_word.get(id_col) not in filtered_df[id_col].values):
+        if 'current_word' not in st.session_state or st.session_state.get('current_word_level') not in selected_levels:
             st.session_state.current_word = filtered_df.sample().iloc[0]
             st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
 
@@ -577,7 +712,7 @@ with tab1:
                     st.session_state.forgotten.append(word)
                 if word in st.session_state.remembered:
                     st.session_state.remembered.remove(word)
-            
+
             if feedback in ("remembered", "forgotten"):
                 timestamp = datetime.now().strftime("%H:%M:%S")
                 st.session_state.play_history.append({
@@ -589,7 +724,7 @@ with tab1:
                     "HSK": w.get('hsk_level_label', w['hsk_level']),
                     "ผล": "✅ จำได้" if feedback == "remembered" else "❌ จำไม่ได้",
                 })
-            
+
             st.session_state.current_word = filtered_df.sample().iloc[0]
             st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
             st.session_state.card_flipped = False
@@ -601,6 +736,7 @@ with tab1:
             st.session_state.show_translate_options = False
             st.session_state.card_translate_result = None
             st.session_state.card_translate_word = None
+            # เพิ่ม generation เพื่อบังคับให้ browser สร้าง checkbox ใหม่ → reset flip
             st.session_state.flip_generation = st.session_state.get('flip_generation', 0) + 1
 
         if st.session_state.audio_enabled and not st.session_state.audio_played:
@@ -623,15 +759,19 @@ with tab1:
             if st.session_state.last_word_id != current_word_id:
                 st.session_state.card_flipped = False
                 st.session_state.last_word_id = current_word_id
-            
+
             flipped_class = "flipped" if st.session_state.card_flipped else ""
             colors = get_hsk_color(st.session_state.current_word['hsk_level'])
             current_word_text = st.session_state.current_word[word_col] if word_col else st.session_state.current_word['word']
             flip_gen = st.session_state.get('flip_generation', 0)
+            # แสดง label เต็ม เช่น "1 (2)" แทนแค่ "1" เพื่อบอกว่าคำนี้
+            # มีระดับหลักเป็น 1 แต่ปรากฏใน HSK 2 ด้วย
             current_hsk_label = st.session_state.current_word.get(
                 'hsk_level_label', st.session_state.current_word['hsk_level']
             )
 
+            # ตัวอย่างประโยค (ถ้ามี และเปิดใช้งานใน sidebar) จะแสดงทันที
+            # ที่ด้านหลังของการ์ดพร้อมกับคำแปล (ไม่ต้องกดเฉลยซ้ำ)
             example_lines = get_examples_html(st.session_state.current_word)
             example_html = "".join(f'<div class="ex-line">{line}</div>' for line in example_lines)
 
@@ -805,6 +945,8 @@ body {{ background:transparent; }}
 
                 st.markdown(f"- 🇨🇳 {current_word_text}\n- 📖 {pin}\n- 🇹🇭 {mean}")
 
+                # ตัวอย่างประโยค: ภาษาจีนเปิดให้เห็นตลอดเวลา ส่วนไทย/อังกฤษ
+                # จะถูกซ่อน (masked) จนกว่าจะกด "เฉลย" เช่นเดียวกับพินอิน/คำแปล
                 ex_zh_val = get_example_value(st.session_state.current_word, "zh")
                 ex_th_val = get_example_value(st.session_state.current_word, "th")
                 ex_en_val = get_example_value(st.session_state.current_word, "en")
@@ -825,8 +967,9 @@ body {{ background:transparent; }}
                         st.markdown(f'<div class="example-box">{line}</div>', unsafe_allow_html=True)
 
                 st.divider()
+                # ── แปลคำ: MyMemory (ทำเลย) ──────────────────────────────
                 st.markdown("**🔠 แปลคำนี้:**")
-                
+
                 if st.button("🤖 MyMemory (แปลทันที)", use_container_width=True, key="mymemory_card_btn"):
                     with st.spinner("กำลังแปล..."):
                         trans = free_translate(current_word_text, "zh-CN", "th")
@@ -840,9 +983,10 @@ body {{ background:transparent; }}
                 if st.session_state.card_translate_result and st.session_state.card_translate_word == current_word_text:
                     st.markdown(f'<div class="translate-result-box">{st.session_state.card_translate_result}</div>', unsafe_allow_html=True)
 
+                # Google & GPT เปิด link ใหม่
                 g_url = get_google_translate_url(current_word_text)
                 gpt_url = get_chatgpt_translate_url(current_word_text)
-                
+
                 btn_c1, btn_c2 = st.columns(2)
                 with btn_c1:
                     st.link_button("🌍 Google", g_url, use_container_width=True)
@@ -854,12 +998,14 @@ body {{ background:transparent; }}
                     st.markdown(st.session_state.ai_response)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 2: คำศัพท์
+# TAB 2: คำศัพท์ (พร้อม search + translate เลือกคำได้)
 # ══════════════════════════════════════════════════════════════════════════════
-with tab2:
+elif active_tab_choice == "📖 คำศัพท์":
     if not filtered_df.empty:
+        # ── Search bar ในหน้าคำศัพท์ ─────────────────────────────────────────
         st.markdown("### 🔍 ค้นหาคำศัพท์")
 
+        # ปุ่มล้าง: set flag ก่อน render widget เพื่อกำหนด value เริ่มต้นถูกต้อง
         if "vocab_search_clear_flag" not in st.session_state:
             st.session_state.vocab_search_clear_flag = False
 
@@ -867,14 +1013,29 @@ with tab2:
         with vocab_search_col2:
             if st.button("✕ ล้าง", use_container_width=True, key="vocab_search_clear"):
                 st.session_state.vocab_search_clear_flag = True
+                st.session_state.vocab_search_prefill = None
                 st.rerun()
 
+        # ลำดับความสำคัญของค่าเริ่มต้นในช่องค้นหา:
+        # 1) ถ้ากดปุ่ม "ล้าง" มา -> value=""
+        # 2) ถ้ามาจากปุ่ม "📖 ไปดูในหน้าคำศัพท์" ใน sidebar -> เติมคำนั้นให้เลย
+        # 3) ปกติ -> ใช้ค่าที่พิมพ์ไว้ล่าสุด (key-based widget)
         with vocab_search_col1:
             if st.session_state.vocab_search_clear_flag:
                 st.session_state.vocab_search_clear_flag = False
                 vocab_query = st.text_input(
                     "ค้นหา",
                     value="",
+                    placeholder="พิมพ์ id / คำจีน / pinyin (ไม่ต้องมีวรรณยุกต์) / แปล ...",
+                    label_visibility="collapsed",
+                    key="vocab_search_input"
+                )
+            elif st.session_state.vocab_search_prefill:
+                prefill_val = st.session_state.vocab_search_prefill
+                st.session_state.vocab_search_prefill = None
+                vocab_query = st.text_input(
+                    "ค้นหา",
+                    value=prefill_val,
                     placeholder="พิมพ์ id / คำจีน / pinyin (ไม่ต้องมีวรรณยุกต์) / แปล ...",
                     label_visibility="collapsed",
                     key="vocab_search_input"
@@ -887,20 +1048,23 @@ with tab2:
                     key="vocab_search_input"
                 )
 
+        # กรองข้อมูลในหน้าคำศัพท์แยกจาก sidebar
         vocab_display_df = filtered_df.copy()
-        
+
         if vocab_query and vocab_query.strip():
             vq = vocab_query.strip()
             vq_toneless = strip_tones(vq)
             vmask = pd.Series([False] * len(vocab_display_df), index=vocab_display_df.index)
-            
+
+            # ค้นหาทุก column ที่เปิดอยู่
             for col_key, actual_col in st.session_state.col_mapping.items():
                 if actual_col and actual_col in vocab_display_df.columns:
                     if col_key == "pinyin":
+                        # fuzzy pinyin ไม่ต้องมีวรรณยุกต์ (ใช้ column ที่ precompute ไว้แล้ว)
                         vmask = vmask | (vocab_display_df['_pinyin_toneless'].str.contains(vq_toneless, na=False, regex=False))
                     else:
                         vmask = vmask | (vocab_display_df[actual_col].astype(str).str.contains(vq, case=False, na=False, regex=False))
-            
+
             vocab_display_df = vocab_display_df[vmask]
             st.caption(f"🔎 พบ **{len(vocab_display_df)}** คำ จาก {len(filtered_df)} คำทั้งหมด")
         else:
@@ -908,13 +1072,15 @@ with tab2:
 
         st.divider()
 
+        # ── Pagination ───────────────────────────────────────────────────────
         items_per_page = 100
         total_items = len(vocab_display_df)
         total_pages = max(1, (total_items + items_per_page - 1) // items_per_page)
-        
+
         if "vocab_page" not in st.session_state:
             st.session_state.vocab_page = 1
 
+        # reset page เมื่อค้นหาใหม่
         if "last_vocab_query" not in st.session_state:
             st.session_state.last_vocab_query = ""
         if st.session_state.last_vocab_query != vocab_query:
@@ -950,6 +1116,7 @@ with tab2:
             end_idx = start_idx + items_per_page
             page_df = vocab_display_df.iloc[start_idx:end_idx].copy()
 
+            # columns ที่แสดง
             disp_cols = []
             col_order = ["id", "hsk_level", "word", "pinyin", "pos_en", "pos_th", "pos_zh", "trans_th", "trans_en", "example_zh", "example_th", "example_en"]
             for col_key in col_order:
@@ -957,11 +1124,15 @@ with tab2:
                     disp_cols.append(st.session_state.col_mapping[col_key])
             show_cols = disp_cols if disp_cols else [c for c in page_df.columns if c != '_pinyin_toneless']
 
+            # ถ้าคอลัมน์ hsk_level อยู่ในรายการที่จะแสดง ให้สลับไปแสดง
+            # "hsk_level_label" แทน (เช่น "1 (2)") เพื่อให้เห็นทั้งระดับหลัก
+            # และระดับที่ปรากฏเพิ่มเติม โดยยังคงหัวคอลัมน์เดิมไว้
             display_page_df = page_df
             if "hsk_level" in show_cols and "hsk_level_label" in page_df.columns:
                 display_page_df = page_df.copy()
                 display_page_df["hsk_level"] = display_page_df["hsk_level_label"]
 
+            # dataframe แบบเลือก row ได้ → คลิกแล้วแปลคำได้เลย
             selection = st.dataframe(
                 display_page_df[show_cols],
                 use_container_width=True,
@@ -971,6 +1142,7 @@ with tab2:
                 key="vocab_df_selection"
             )
 
+            # ถ้ามี row ถูกเลือก → ดึงคำจีนมาใส่ใน session_state
             selected_rows = selection.selection.get("rows", [])
             if selected_rows:
                 sel_idx = selected_rows[0]
@@ -978,22 +1150,27 @@ with tab2:
                 clicked_word = str(sel_row[word_col]) if word_col and word_col in sel_row.index else ""
                 if clicked_word and clicked_word != st.session_state.get("vocab_clicked_word", ""):
                     st.session_state["vocab_clicked_word"] = clicked_word
+                    # sync ไปที่ช่องแปลด้วย
                     st.session_state["vocab_translate_from_click"] = clicked_word
 
             st.divider()
 
+            # ── แปลคำที่เลือก ─────────────────────────────────────────────────
             st.markdown("### 🌐 แปลคำศัพท์")
 
+            # แสดง hint ถ้ายังไม่มีคำที่คลิก
             clicked_from_table = st.session_state.get("vocab_translate_from_click", "")
 
+            # เลือกคำจาก dropdown หรือพิมพ์เอง
             tr_input_col1, tr_input_col2 = st.columns([0.55, 0.45])
-            
+
             with tr_input_col1:
                 if word_col and word_col in page_df.columns:
                     word_options = ["(พิมพ์เอง)"] + page_df[word_col].dropna().astype(str).tolist()
                 else:
                     word_options = ["(พิมพ์เอง)"]
 
+                # เปลี่ยน key ทุกครั้งที่ clicked_from_table เปลี่ยน เพื่อ force Streamlit re-render selectbox
                 select_key = f"vocab_translate_select_{clicked_from_table}"
                 default_idx = 0
                 if clicked_from_table and clicked_from_table in word_options:
@@ -1005,7 +1182,7 @@ with tab2:
                     index=default_idx,
                     key=select_key
                 )
-            
+
             with tr_input_col2:
                 if selected_word_option == "(พิมพ์เอง)":
                     custom_word = st.text_input("พิมพ์คำจีน", placeholder="例: 你好", key="vocab_translate_custom", label_visibility="collapsed")
@@ -1014,6 +1191,7 @@ with tab2:
                     word_to_translate = selected_word_option
                     st.markdown(f"<div style='padding:8px 0; font-size:28px; text-align:center;'>{word_to_translate}</div>", unsafe_allow_html=True)
 
+            # auto-translate ทันทีเมื่อคลิก row ใหม่จากตาราง
             if clicked_from_table and st.session_state.get("vocab_auto_translate_done") != clicked_from_table:
                 with st.spinner("กำลังแปล..."):
                     trans = free_translate(clicked_from_table, "zh-CN", "th")
@@ -1026,7 +1204,7 @@ with tab2:
 
             if word_to_translate:
                 tr_b1, tr_b2, tr_b3 = st.columns(3)
-                
+
                 with tr_b1:
                     if st.button("🤖 MyMemory", use_container_width=True, key="vocab_mymemory_btn"):
                         with st.spinner("กำลังแปล..."):
@@ -1037,20 +1215,22 @@ with tab2:
                             st.session_state["vocab_translate_result"] = "⚠️ แปลไม่ได้"
                         st.session_state["vocab_translate_target"] = word_to_translate
                         st.rerun()
-                
+
                 with tr_b2:
                     g_url = get_google_translate_url(word_to_translate)
                     st.link_button("🌍 Google", g_url, use_container_width=True)
-                
+
                 with tr_b3:
                     gpt_url = get_chatgpt_translate_url(word_to_translate)
                     st.link_button("🧠 ChatGPT", gpt_url, use_container_width=True)
 
+                # แสดงผล MyMemory
                 if st.session_state.get("vocab_translate_result") and st.session_state.get("vocab_translate_target") == word_to_translate:
                     st.markdown(f'<div class="translate-result-box">{st.session_state["vocab_translate_result"]}</div>', unsafe_allow_html=True)
 
             st.divider()
-            
+
+            # Download
             csv = vocab_display_df[show_cols].to_csv(index=False).encode('utf-8')
             st.download_button("⬇️ ดาวน์โหลด CSV (ที่กรองแล้ว)", csv, 'hsk_list.csv', 'text/csv')
 
@@ -1062,7 +1242,7 @@ with tab2:
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 3: ประวัติ
 # ══════════════════════════════════════════════════════════════════════════════
-with tab3:
+elif active_tab_choice == "📋 ประวัติ":
     history = st.session_state.get("play_history", [])
     if not history:
         st.info("ยังไม่มีประวัติ")
@@ -1077,7 +1257,7 @@ with tab3:
 
         st.divider()
         st.dataframe(hist_df, use_container_width=True, hide_index=True, height=400)
-        
+
         c1, c2 = st.columns([0.3, 0.7])
         with c1:
             if st.button("🗑️ ล้าง", use_container_width=True, key="clear_btn"):
