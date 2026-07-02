@@ -6,7 +6,11 @@ import requests
 import urllib.parse
 import unicodedata
 import re
-from datetime import datetime
+import json
+import os
+import random
+import tempfile
+from datetime import datetime, timedelta
 from functools import lru_cache
 
 st.set_page_config(
@@ -17,6 +21,146 @@ st.set_page_config(
 )
 
 HSK_LEVELS = ["1", "2", "3", "4", "5", "6", "7-9"]
+
+# ─── บันทึกความคืบหน้าแบบถาวร (SRS + ประวัติ) ───────────────────────────────
+# เก็บลงไฟล์ JSON บน disk ของ container ที่รันแอปอยู่ เพื่อให้ข้อมูลไม่หาย
+# เมื่อ refresh หน้าเว็บหรือปิด-เปิดใหม่ในเซสชันเดิม
+# ข้อควรรู้: บน Streamlit Community Cloud พื้นที่นี้เป็นแบบ ephemeral —
+# ข้อมูลจะหายไปเมื่อแอป "reboot" หรือ redeploy ใหม่ (แต่ไม่หายแค่ refresh
+# หน้าเว็บหรือปิดเบราว์เซอร์) ถ้าต้องการให้ข้อมูลอยู่ถาวรจริงๆ ข้ามการ
+# redeploy ได้ ต้องต่อกับฐานข้อมูลภายนอก เช่น Google Sheet หรือ database
+try:
+    _DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_data")
+    os.makedirs(_DATA_DIR, exist_ok=True)
+    _PROBE = os.path.join(_DATA_DIR, ".write_test")
+    with open(_PROBE, "w") as _f:
+        _f.write("ok")
+    os.remove(_PROBE)
+except Exception:
+    _DATA_DIR = tempfile.gettempdir()
+
+PROGRESS_FILE = os.path.join(_DATA_DIR, "hsk_progress.json")
+
+# ตารางช่วงเวลาทบทวนแบบ Leitner box: box N -> รออีกกี่วันก่อนจะเจอคำนี้อีก
+# box 1 = คำใหม่/เพิ่งตอบผิด (เจอทันที), box สูงขึ้น = จำได้แม่นขึ้นเรื่อยๆ
+SRS_INTERVAL_DAYS = {1: 0, 2: 1, 3: 3, 4: 7, 5: 14, 6: 30}
+SRS_MAX_BOX = 6
+
+
+def _load_progress():
+    try:
+        with open(PROGRESS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        data.setdefault("srs", {})
+        data.setdefault("history", [])
+        data.setdefault("remembered", [])
+        data.setdefault("forgotten", [])
+        data.setdefault("players", {})
+        return data
+    except Exception:
+        return {"srs": {}, "history": [], "remembered": [], "forgotten": [], "players": {}}
+
+
+def _save_progress():
+    try:
+        data = {
+            "srs": st.session_state.get("srs_data", {}),
+            "history": st.session_state.get("play_history", []),
+            "remembered": st.session_state.get("remembered", []),
+            "forgotten": st.session_state.get("forgotten", []),
+            "players": st.session_state.get("players_data", {}),
+        }
+        with open(PROGRESS_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+
+def _current_player_name():
+    """ชื่อผู้เล่นปัจจุบัน (จากช่องกรอกใน sidebar) ใช้เป็น key ใน leaderboard.
+    หมายเหตุ: ไม่มีระบบล็อกอินจริง ใครพิมพ์ชื่อซ้ำกันจะรวมสถิติกัน"""
+    name = str(st.session_state.get("player_name", "")).strip()
+    return name if name else "Guest"
+
+
+def _record_player_result(correct):
+    """บันทึกผลถูก/ผิด 1 ครั้ง ให้ผู้เล่นปัจจุบัน สำหรับ leaderboard —
+    เรียกคู่กับ _update_srs() ทุกครั้งที่มีการให้ feedback คำศัพท์"""
+    name = _current_player_name()
+    players = st.session_state.get("players_data", {})
+    p = players.get(name, {"correct": 0, "total": 0, "last_active": None})
+    p["total"] = p.get("total", 0) + 1
+    if correct:
+        p["correct"] = p.get("correct", 0) + 1
+    p["last_active"] = datetime.now().isoformat()
+    players[name] = p
+    st.session_state.players_data = players
+
+
+def _update_srs(word_id, correct):
+    """Update the Leitner box + next-due date for one word after the user
+    answers it (flashcard 'จำได้/จำไม่ได้' or quiz mode). Called on every
+    feedback event, then persists to disk."""
+    wid = str(word_id)
+    srs = st.session_state.srs_data
+    entry = srs.get(wid, {"box": 1, "next_due": None})
+    box = entry.get("box", 1)
+    if correct:
+        box = min(box + 1, SRS_MAX_BOX)
+    else:
+        box = 1
+    due = datetime.now() + timedelta(days=SRS_INTERVAL_DAYS.get(box, 0))
+    srs[wid] = {"box": box, "next_due": due.isoformat(), "last_result": "correct" if correct else "wrong"}
+    st.session_state.srs_data = srs
+    _record_player_result(correct)
+    _save_progress()
+
+
+def pick_srs_word(pool_df):
+    """Pick the next word to study from pool_df, prioritizing (in order):
+    1) words that are 'due' for review, weakest box first
+    2) brand-new words never studied yet
+    3) if everything is fresh/ahead of schedule, the soonest-due word
+    Vectorized with pandas so it stays fast even with thousands of rows."""
+    if pool_df.empty:
+        return None
+    srs = st.session_state.get("srs_data", {})
+    if not srs:
+        return pool_df.sample().iloc[0]
+
+    srs_rows = [
+        {"id": k, "box": v.get("box", 1), "next_due": v.get("next_due")}
+        for k, v in srs.items()
+    ]
+    srs_df = pd.DataFrame(srs_rows) if srs_rows else pd.DataFrame(columns=["id", "box", "next_due"])
+    if not srs_df.empty:
+        srs_df["id"] = srs_df["id"].astype(str)
+        srs_df["next_due"] = pd.to_datetime(srs_df["next_due"], errors="coerce")
+
+    pool = pool_df.copy()
+    pool["_id_str"] = pool["id"].astype(str)
+    merged = pool.merge(srs_df, left_on="_id_str", right_on="id", how="left", suffixes=("", "_srs"))
+
+    now = pd.Timestamp.now()
+    is_new = merged["box"].isna()
+    is_due = (~is_new) & (merged["next_due"] <= now)
+    is_future = (~is_new) & (~is_due)
+
+    due_pool = merged[is_due]
+    if not due_pool.empty:
+        min_box = due_pool["box"].min()
+        candidates = due_pool[due_pool["box"] == min_box]
+        return candidates.sample().iloc[0]
+
+    new_pool = merged[is_new]
+    if not new_pool.empty:
+        return new_pool.sample().iloc[0]
+
+    future_pool = merged[is_future]
+    if not future_pool.empty:
+        return future_pool.sort_values("next_due").iloc[0]
+
+    return pool_df.sample().iloc[0]
 
 
 @st.cache_data
@@ -286,7 +430,26 @@ div[data-testid="stRadio"] label:has(input:checked) p {
 </style>
 """, unsafe_allow_html=True)
 
+if "progress_loaded" not in st.session_state:
+    _saved = _load_progress()
+    st.session_state.srs_data = _saved.get("srs", {})
+    st.session_state.play_history = _saved.get("history", [])
+    st.session_state.remembered = _saved.get("remembered", [])
+    st.session_state.forgotten = _saved.get("forgotten", [])
+    st.session_state.players_data = _saved.get("players", {})
+    st.session_state.progress_loaded = True
+
 st.title("🇨🇳 HSK Flashcard Intelligence")
+
+# ─── Sidebar: ชื่อผู้เล่น (สำหรับ Leaderboard) ──────────────────────────────
+# ไม่มีระบบล็อกอินจริง แค่ให้พิมพ์ชื่อ/ชื่อเล่นไว้ เพื่อแยกสถิติแต่ละคนใน
+# ตาราง Leaderboard (แท็บ "📋 ประวัติ") — ถ้าใครพิมพ์ชื่อซ้ำกัน สถิติจะรวมกัน
+st.sidebar.markdown('<div class="sidebar-section-title">🙋 ผู้เล่น</div>', unsafe_allow_html=True)
+st.session_state.player_name = st.sidebar.text_input(
+    "ชื่อ/ชื่อเล่นของคุณ", value=st.session_state.get("player_name", ""),
+    placeholder="พิมพ์ชื่อก่อนเริ่มเล่น เพื่อขึ้น Leaderboard",
+    key="player_name_input", label_visibility="collapsed",
+)
 
 # ─── Sidebar: data source ────────────────────────────────────────────────────
 st.sidebar.header("แหล่งข้อมูล")
@@ -758,6 +921,41 @@ if st.sidebar.button(ai_label, use_container_width=True, key="ai_sidebar_btn"):
     st.session_state.ai_panel_open = not st.session_state.ai_panel_open
     st.rerun()
 
+# ── สรุปคำที่ถึงกำหนดทบทวนวันนี้ (SRS) + ปุ่มล้างความคืบหน้า ──────────────
+_srs_now = pd.Timestamp.now()
+_due_count = 0
+for _v in st.session_state.get("srs_data", {}).values():
+    _nd = _v.get("next_due")
+    if _nd is None or pd.to_datetime(_nd, errors="coerce") <= _srs_now:
+        _due_count += 1
+if _due_count > 0:
+    st.sidebar.caption(f"📅 มีคำถึงกำหนดทบทวน {_due_count} คำ")
+
+if "confirm_reset_progress" not in st.session_state:
+    st.session_state.confirm_reset_progress = False
+
+if not st.session_state.confirm_reset_progress:
+    if st.sidebar.button("🗑️ ล้างความคืบหน้าทั้งหมด", use_container_width=True, key="reset_progress_btn"):
+        st.session_state.confirm_reset_progress = True
+        st.rerun()
+else:
+    st.sidebar.warning("ล้างข้อมูล SRS + ประวัติ + Leaderboard ของทุกคนทั้งหมด? กู้คืนไม่ได้")
+    rc1, rc2 = st.sidebar.columns(2)
+    with rc1:
+        if st.button("✅ ยืนยัน", use_container_width=True, key="reset_progress_confirm"):
+            st.session_state.srs_data = {}
+            st.session_state.play_history = []
+            st.session_state.remembered = []
+            st.session_state.forgotten = []
+            st.session_state.players_data = {}
+            _save_progress()
+            st.session_state.confirm_reset_progress = False
+            st.rerun()
+    with rc2:
+        if st.button("✕ ยกเลิก", use_container_width=True, key="reset_progress_cancel"):
+            st.session_state.confirm_reset_progress = False
+            st.rerun()
+
 # ─── Tabs ─────────────────────────────────────────────────────────────────────
 # ใช้ st.radio แทน st.tabs เพราะ st.tabs สลับแท็บจากโค้ด (เช่น กดปุ่มใน
 # sidebar) ไม่ได้ ส่วน radio ควบคุมด้วย session_state ได้ ทำให้ปุ่ม
@@ -767,7 +965,7 @@ if st.sidebar.button(ai_label, use_container_width=True, key="ai_sidebar_btn"):
 # ทั้งตอนตั้งค่าเริ่มต้นและตอน sidebar สั่ง "เปลี่ยนแท็บ" — ถ้าใช้ key อื่น
 # แล้วพยายาม sync ผ่าน index=... มันจะไม่เปลี่ยนตาม เพราะ Streamlit จะยึด
 # ค่าที่บันทึกไว้ใน session_state[key] ของ widget เป็นหลักเสมอเมื่อ rerun
-_TAB_LABELS = ["🎴 Flashcard", "📖 คำศัพท์", "📋 ประวัติ"]
+_TAB_LABELS = ["🎴 Flashcard", "🎯 Quiz", "📖 คำศัพท์", "📋 ประวัติ"]
 active_tab_choice = st.radio(
     "เมนู", _TAB_LABELS,
     horizontal=True, label_visibility="collapsed", key="active_tab_radio",
@@ -783,7 +981,7 @@ if active_tab_choice == "🎴 Flashcard":
         st.warning("⚠️ ไม่มีคำในเลเวลที่เลือก")
     else:
         if 'current_word' not in st.session_state or st.session_state.get('current_word_level') not in selected_levels:
-            st.session_state.current_word = filtered_df.sample().iloc[0]
+            st.session_state.current_word = pick_srs_word(filtered_df)
             st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
 
         for k, v in [('card_flipped', False), ('audio_played', False), ('remembered', []), ('forgotten', []), ('play_history', []), ('ai_response', None), ('ai_response_word', None), ('reveal_side', False), ('last_word_id', None), ('show_translate_options', False), ('card_translate_result', None), ('card_translate_word', None), ('flip_generation', 0)]:
@@ -815,8 +1013,10 @@ if active_tab_choice == "🎴 Flashcard":
                     "HSK": w.get('hsk_level_label', w['hsk_level']),
                     "ผล": "✅ จำได้" if feedback == "remembered" else "❌ จำไม่ได้",
                 })
+                # อัปเดต spaced-repetition box ของคำนี้ + บันทึกความคืบหน้าลงดิสก์
+                _update_srs(w.get('id'), correct=(feedback == "remembered"))
 
-            st.session_state.current_word = filtered_df.sample().iloc[0]
+            st.session_state.current_word = pick_srs_word(filtered_df)
             st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
             st.session_state.card_flipped = False
             st.session_state.audio_played = False
@@ -1089,9 +1289,137 @@ body {{ background:transparent; }}
                     st.markdown(st.session_state.ai_response)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# TAB 2: คำศัพท์ (พร้อม search + translate เลือกคำได้)
+# TAB QUIZ: ตอบตัวเลือก / ฟังเสียงแล้วเดา (ใช้ระบบ SRS เดียวกับ Flashcard)
 # ══════════════════════════════════════════════════════════════════════════════
-elif active_tab_choice == "📖 คำศัพท์":
+elif active_tab_choice == "🎯 Quiz":
+    if filtered_df.empty:
+        st.warning("⚠️ ไม่มีคำในเลเวลที่เลือก")
+    elif len(filtered_df) < 4:
+        st.warning("⚠️ ต้องมีคำอย่างน้อย 4 คำในเลเวลที่เลือก ถึงจะสร้างตัวเลือกให้ได้")
+    else:
+        st.markdown("### 🎯 Quiz")
+
+        if "quiz_mode" not in st.session_state:
+            st.session_state.quiz_mode = "meaning"  # "meaning" หรือ "listening"
+
+        qm1, qm2 = st.columns(2)
+        with qm1:
+            if st.button("👁️ เห็นคำจีน → เลือกความหมาย", use_container_width=True,
+                         type="primary" if st.session_state.quiz_mode == "meaning" else "secondary"):
+                st.session_state.quiz_mode = "meaning"
+                st.session_state.quiz_question = None
+                st.rerun()
+        with qm2:
+            if st.button("🔊 ฟังเสียง → เลือกคำ", use_container_width=True,
+                         type="primary" if st.session_state.quiz_mode == "listening" else "secondary"):
+                st.session_state.quiz_mode = "listening"
+                st.session_state.quiz_question = None
+                st.rerun()
+
+        for k, v in [("quiz_question", None), ("quiz_options", None), ("quiz_answered", False),
+                     ("quiz_selected", None), ("quiz_correct", None), ("quiz_score_correct", 0),
+                     ("quiz_score_total", 0)]:
+            if k not in st.session_state:
+                st.session_state[k] = v
+
+        def _new_quiz_question():
+            target = pick_srs_word(filtered_df)
+            distractor_pool = filtered_df[filtered_df["id"] != target["id"]]
+            n_distractors = min(3, len(distractor_pool))
+            distractors = distractor_pool.sample(n_distractors)
+            options = [target] + [distractors.iloc[i] for i in range(len(distractors))]
+            random.shuffle(options)
+            st.session_state.quiz_question = target
+            st.session_state.quiz_options = options
+            st.session_state.quiz_answered = False
+            st.session_state.quiz_selected = None
+            st.session_state.quiz_correct = None
+
+        if st.session_state.quiz_question is None:
+            _new_quiz_question()
+
+        target = st.session_state.quiz_question
+        target_word = target[word_col] if word_col else target["word"]
+        target_meaning = target.get(trans_th_col, target.get("trans_th", ""))
+        target_level = target.get("hsk_level_label", target.get("hsk_level", ""))
+
+        st.divider()
+        sc1, sc2 = st.columns(2)
+        sc1.metric("✅ ถูก", st.session_state.quiz_score_correct)
+        sc2.metric("📊 ทั้งหมด", st.session_state.quiz_score_total)
+        st.divider()
+
+        if st.session_state.quiz_mode == "meaning":
+            colors = get_hsk_color(target["hsk_level"])
+            st.markdown(
+                f'<div style="background:linear-gradient({colors["gradient"]});border-radius:20px;'
+                f'padding:36px;text-align:center;margin-bottom:16px;">'
+                f'<div style="font-size:13px;color:white;opacity:0.8;margin-bottom:8px;">HSK {target_level}</div>'
+                f'<div style="font-size:64px;font-weight:800;color:white;">{target_word}</div>'
+                f'</div>', unsafe_allow_html=True,
+            )
+            st.markdown("**เลือกความหมายที่ถูกต้อง:**")
+            option_labels = [
+                str(opt.get(trans_th_col, opt.get("trans_th", ""))) for opt in st.session_state.quiz_options
+            ]
+        else:
+            st.info(f"HSK {target_level} — กดฟังเสียงแล้วเลือกคำจีนที่ถูกต้อง")
+            if st.button("🔊 ฟังเสียง", use_container_width=True, key="quiz_listen_btn"):
+                audio_fp = speak_word(target_word)
+                st.audio(audio_fp.getvalue(), format="audio/mp3", autoplay=True)
+            if not st.session_state.quiz_answered:
+                audio_fp = speak_word(target_word)
+                st.audio(audio_fp.getvalue(), format="audio/mp3", autoplay=True)
+            st.markdown("**เลือกคำจีนที่ได้ยิน:**")
+            option_labels = [
+                str(opt[word_col] if word_col else opt["word"]) for opt in st.session_state.quiz_options
+            ]
+
+        for i, opt in enumerate(st.session_state.quiz_options):
+            is_target = (opt["id"] == target["id"])
+            label = option_labels[i]
+
+            btn_type = "secondary"
+            suffix = ""
+            if st.session_state.quiz_answered:
+                if is_target:
+                    btn_type = "primary"
+                    suffix = " ✅"
+                elif st.session_state.quiz_selected == opt["id"]:
+                    suffix = " ❌"
+
+            if st.button(f"{label}{suffix}", use_container_width=True, key=f"quiz_opt_{i}_{opt['id']}",
+                         disabled=st.session_state.quiz_answered, type=btn_type):
+                st.session_state.quiz_answered = True
+                st.session_state.quiz_selected = opt["id"]
+                correct = is_target
+                st.session_state.quiz_correct = correct
+                st.session_state.quiz_score_total += 1
+                if correct:
+                    st.session_state.quiz_score_correct += 1
+                _update_srs(target["id"], correct=correct)
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                st.session_state.play_history.append({
+                    "เวลา": timestamp,
+                    "id": target.get(id_col, target.get('id', '')),
+                    "คำจีน": target_word,
+                    "พินอิน": target.get(pinyin_col, target.get('pinyin', '')),
+                    "คำแปล": target_meaning,
+                    "HSK": target_level,
+                    "ผล": "✅ จำได้" if correct else "❌ จำไม่ได้",
+                })
+                st.rerun()
+
+        if st.session_state.quiz_answered:
+            if st.session_state.quiz_correct:
+                st.success(f"✅ ถูกต้อง! {target_word} = {target_meaning}")
+            else:
+                st.error(f"❌ ยังไม่ถูก — {target_word} แปลว่า {target_meaning}")
+            if st.button("➡️ ข้อถัดไป", use_container_width=True, key="quiz_next_btn"):
+                _new_quiz_question()
+                st.rerun()
+
+
     if not filtered_df.empty:
         # ── Search bar ในหน้าคำศัพท์ ─────────────────────────────────────────
         st.markdown("### 🔍 ค้นหาคำศัพท์")
@@ -1334,6 +1662,36 @@ elif active_tab_choice == "📖 คำศัพท์":
 # TAB 3: ประวัติ
 # ══════════════════════════════════════════════════════════════════════════════
 elif active_tab_choice == "📋 ประวัติ":
+    # ── 🏆 Leaderboard ────────────────────────────────────────────────────
+    # อันดับผู้เล่นตาม % ตอบถูก (ต้องตอบอย่างน้อย 1 ครั้งถึงจะขึ้น) — คะแนนนับ
+    # รวมทั้งจาก Flashcard (จำได้/จำไม่ได้) และ Quiz
+    players = st.session_state.get("players_data", {})
+    st.markdown("### 🏆 Leaderboard")
+    if not players:
+        st.info("ยังไม่มีใครเล่นเลย — พิมพ์ชื่อใน sidebar แล้วเริ่มตอบคำถามได้เลย")
+    else:
+        rows = []
+        for name, p in players.items():
+            total = p.get("total", 0)
+            correct = p.get("correct", 0)
+            acc = round(correct / total * 100, 1) if total else 0.0
+            rows.append({
+                "ผู้เล่น": name,
+                "ตอบถูก": correct,
+                "ตอบทั้งหมด": total,
+                "ความแม่นยำ (%)": acc,
+                "เล่นล่าสุด": p.get("last_active", "")[:19].replace("T", " ") if p.get("last_active") else "",
+            })
+        board_df = pd.DataFrame(rows).sort_values(
+            by=["ความแม่นยำ (%)", "ตอบถูก"], ascending=[False, False]
+        ).reset_index(drop=True)
+        board_df.insert(0, "อันดับ", [f"🥇" if i == 0 else f"🥈" if i == 1 else f"🥉" if i == 2 else str(i + 1) for i in range(len(board_df))])
+        me = _current_player_name()
+        board_df["ผู้เล่น"] = board_df["ผู้เล่น"].apply(lambda n: f"⭐ {n} (คุณ)" if n == me else n)
+        st.dataframe(board_df, use_container_width=True, hide_index=True)
+
+    st.divider()
+
     history = st.session_state.get("play_history", [])
     if not history:
         st.info("ยังไม่มีประวัติ")
