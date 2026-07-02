@@ -27,8 +27,30 @@ HSK_LEVELS = ["1", "2", "3", "4", "5", "6", "7-9"]
 # เมื่อ refresh หน้าเว็บหรือปิด-เปิดใหม่ในเซสชันเดิม
 # ข้อควรรู้: บน Streamlit Community Cloud พื้นที่นี้เป็นแบบ ephemeral —
 # ข้อมูลจะหายไปเมื่อแอป "reboot" หรือ redeploy ใหม่ (แต่ไม่หายแค่ refresh
-# หน้าเว็บหรือปิดเบราว์เซอร์) ถ้าต้องการให้ข้อมูลอยู่ถาวรจริงๆ ข้ามการ
-# redeploy ได้ ต้องต่อกับฐานข้อมูลภายนอก เช่น Google Sheet หรือ database
+# หน้าเว็บหรือปิดเบราว์เซอร์)
+#
+# ── (ทางเลือก) เชื่อมต่อ Google Sheet เพื่อให้ข้อมูลอยู่ถาวรข้าม redeploy ──
+# ถ้าตั้งค่า secrets ไว้ถูกต้อง แอปจะบันทึก/โหลดจาก Google Sheet แทนไฟล์บน
+# disk โดยอัตโนมัติ (ไฟล์บน disk จะยังถูกเขียนเป็น backup สำรองไว้ด้วย)
+# ถ้าไม่ได้ตั้งค่าไว้เลย แอปจะใช้ไฟล์บน disk เหมือนเดิมทุกอย่าง ไม่ error
+#
+# วิธีตั้งค่า (ทำเมื่อไหร่ก็ได้ ไม่จำเป็นต้องทำตอนนี้):
+#   1. เพิ่ม "gspread" และ "google-auth" ลงใน requirements.txt แล้ว redeploy
+#   2. สร้าง Google Cloud Service Account + เปิดใช้ Google Sheets API
+#      แล้วดาวน์โหลดไฟล์ credentials .json
+#   3. สร้าง Google Sheet เปล่าๆ ไว้ 1 ชีท แล้ว "แชร์" ให้กับอีเมลของ
+#      service account (อยู่ในไฟล์ credentials, ลงท้ายด้วย .iam.gserviceaccount.com)
+#      โดยให้สิทธิ์ระดับ "Editor"
+#   4. ใน Streamlit Cloud: Manage app → Settings → Secrets ใส่:
+#        gsheet_id = "รหัสของชีท (ส่วนที่อยู่ใน URL ระหว่าง /d/ กับ /edit)"
+#        [gcp_service_account]
+#        type = "service_account"
+#        project_id = "..."
+#        private_key_id = "..."
+#        private_key = "..."
+#        client_email = "..."
+#        ...(คัดลอกทุกฟิลด์จากไฟล์ credentials .json มาใส่)
+#   5. Reboot แอป — sidebar จะขึ้น "☁️ เชื่อมต่อ Google Sheets แล้ว" ถ้าสำเร็จ
 try:
     _DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_data")
     os.makedirs(_DATA_DIR, exist_ok=True)
@@ -47,7 +69,57 @@ SRS_INTERVAL_DAYS = {1: 0, 2: 1, 3: 3, 4: 7, 5: 14, 6: 30}
 SRS_MAX_BOX = 6
 
 
+def _get_gsheet_worksheet():
+    """คืน worksheet ของ Google Sheet ถ้าตั้งค่า secrets ไว้ครบและเชื่อมต่อ
+    สำเร็จ ไม่งั้นคืน None เงียบๆ (ให้ระบบ fallback ไปใช้ไฟล์ในเครื่องแทน)
+    เรียกใหม่ทุกครั้งที่ใช้งาน (ไม่แคช) เพราะเป็น network call ที่ไม่ได้ถี่มาก
+    (แค่ตอนโหลดหน้าเว็บ + ตอนกดให้ feedback คำศัพท์)"""
+    try:
+        import gspread
+        from google.oauth2.service_account import Credentials
+    except ImportError:
+        return None
+    try:
+        if "gcp_service_account" not in st.secrets:
+            return None
+        sheet_id = st.secrets.get("gsheet_id")
+        if not sheet_id:
+            return None
+        scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+        creds = Credentials.from_service_account_info(dict(st.secrets["gcp_service_account"]), scopes=scopes)
+        gc = gspread.authorize(creds)
+        sh = gc.open_by_key(sheet_id)
+        try:
+            ws = sh.worksheet("hsk_progress")
+        except Exception:
+            ws = sh.add_worksheet(title="hsk_progress", rows=10, cols=2)
+            ws.update("A1:B1", [["data_json", "updated_at"]])
+        return ws
+    except Exception:
+        return None
+
+
 def _load_progress():
+    # ลอง Google Sheet ก่อน (ถ้าตั้งค่าไว้) แล้วค่อย fallback ไปไฟล์ในเครื่อง
+    ws = _get_gsheet_worksheet()
+    if ws is not None:
+        try:
+            raw = ws.acell("A2").value
+            if raw:
+                data = json.loads(raw)
+                data.setdefault("srs", {})
+                data.setdefault("history", [])
+                data.setdefault("remembered", [])
+                data.setdefault("forgotten", [])
+                data.setdefault("players", {})
+                st.session_state["_progress_backend"] = "gsheet"
+                return data
+            st.session_state["_progress_backend"] = "gsheet"
+            return {"srs": {}, "history": [], "remembered": [], "forgotten": [], "players": {}}
+        except Exception:
+            pass
+
+    st.session_state["_progress_backend"] = "local"
     try:
         with open(PROGRESS_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -62,14 +134,23 @@ def _load_progress():
 
 
 def _save_progress():
+    data = {
+        "srs": st.session_state.get("srs_data", {}),
+        "history": st.session_state.get("play_history", []),
+        "remembered": st.session_state.get("remembered", []),
+        "forgotten": st.session_state.get("forgotten", []),
+        "players": st.session_state.get("players_data", {}),
+    }
+    ws = _get_gsheet_worksheet()
+    if ws is not None:
+        try:
+            payload = json.dumps(data, ensure_ascii=False)
+            ws.update("A2:B2", [[payload, datetime.now().isoformat()]])
+            st.session_state["_progress_backend"] = "gsheet"
+        except Exception:
+            pass
+    # เขียนไฟล์ในเครื่องไว้เป็น backup เสมอ (เร็ว ไม่มี network latency ด้วย)
     try:
-        data = {
-            "srs": st.session_state.get("srs_data", {}),
-            "history": st.session_state.get("play_history", []),
-            "remembered": st.session_state.get("remembered", []),
-            "forgotten": st.session_state.get("forgotten", []),
-            "players": st.session_state.get("players_data", {}),
-        }
         with open(PROGRESS_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
     except Exception:
@@ -922,6 +1003,12 @@ if st.sidebar.button(ai_label, use_container_width=True, key="ai_sidebar_btn"):
     st.rerun()
 
 # ── สรุปคำที่ถึงกำหนดทบทวนวันนี้ (SRS) + ปุ่มล้างความคืบหน้า ──────────────
+_backend = st.session_state.get("_progress_backend", "local")
+if _backend == "gsheet":
+    st.sidebar.caption("☁️ บันทึกลง Google Sheets (ถาวรข้าม redeploy)")
+else:
+    st.sidebar.caption("💾 บันทึกในเครื่อง (หายเมื่อแอป redeploy/reboot)")
+
 _srs_now = pd.Timestamp.now()
 _due_count = 0
 for _v in st.session_state.get("srs_data", {}).values():
@@ -984,7 +1071,7 @@ if active_tab_choice == "🎴 Flashcard":
             st.session_state.current_word = pick_srs_word(filtered_df)
             st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
 
-        for k, v in [('card_flipped', False), ('audio_played', False), ('remembered', []), ('forgotten', []), ('play_history', []), ('ai_response', None), ('ai_response_word', None), ('reveal_side', False), ('last_word_id', None), ('show_translate_options', False), ('card_translate_result', None), ('card_translate_word', None), ('flip_generation', 0)]:
+        for k, v in [('card_flipped', False), ('audio_played', False), ('remembered', []), ('forgotten', []), ('play_history', []), ('ai_response', None), ('ai_response_word', None), ('reveal_side', False), ('last_word_id', None), ('show_translate_options', False), ('card_translate_result', None), ('card_translate_word', None), ('flip_generation', 0), ('_last_flip_component_value', None), ('reveal_mode', 'manual')]:
             if k not in st.session_state:
                 st.session_state[k] = v
 
@@ -1019,6 +1106,7 @@ if active_tab_choice == "🎴 Flashcard":
             st.session_state.current_word = pick_srs_word(filtered_df)
             st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
             st.session_state.card_flipped = False
+            st.session_state._last_flip_component_value = None
             st.session_state.audio_played = False
             st.session_state.reveal_side = False
             st.session_state.ai_response = None
@@ -1049,6 +1137,7 @@ if active_tab_choice == "🎴 Flashcard":
             current_word_id = st.session_state.current_word.get('id')
             if st.session_state.last_word_id != current_word_id:
                 st.session_state.card_flipped = False
+                st.session_state._last_flip_component_value = None
                 st.session_state.last_word_id = current_word_id
 
             flipped_class = "flipped" if st.session_state.card_flipped else ""
@@ -1067,7 +1156,7 @@ if active_tab_choice == "🎴 Flashcard":
             example_html = "".join(f'<div class="ex-line">{line}</div>' for line in example_lines)
 
             import streamlit.components.v1 as components
-            components.html(f"""
+            _flip_result = components.html(f"""
 <!DOCTYPE html>
 <html>
 <head>
@@ -1157,7 +1246,11 @@ body {{ background:transparent; }}
 </style>
 </head>
 <body>
-<div class="flip-card" id="card-{flip_gen}" onclick="this.classList.toggle('flipped')">
+<div class="flip-card {flipped_class}" id="card-{flip_gen}" onclick="
+    this.classList.toggle('flipped');
+    var flipped = this.classList.contains('flipped');
+    window.parent.postMessage({{type: 'streamlit:setComponentValue', value: flipped}}, '*');
+">
     <div class="flip-card-inner">
         <div class="flip-card-front">
             <div class="badge id-b">#{st.session_state.current_word.get('id','')}</div>
@@ -1176,7 +1269,33 @@ body {{ background:transparent; }}
 </div>
 </body>
 </html>
-""", height=400, scrolling=False)
+""", height=400, scrolling=False, key=f"flipcard_{flip_gen}")
+
+            # ── sync การพลิกการ์ด (JS) กลับเข้า Python session_state ──────────
+            # ก่อนหน้านี้ตัวการ์ดพลิกได้แค่ฝั่ง browser (CSS/JS) เท่านั้น ไม่เคย
+            # ส่งค่ากลับมาที่ session_state.card_flipped เลย (เป็น dead state)
+            # ทำให้โหมด "เปิดเฉลยพร้อมพลิกการ์ด" ในแถบผู้ช่วยทำงานไม่ได้ — ตอนนี้
+            # ใช้ postMessage(setComponentValue) ให้ components.html คืนค่ากลับมา
+            #
+            # หมายเหตุ: ค่าที่ components.html คืนมาจะ "ค้าง" อยู่ข้าม rerun จนกว่า
+            # จะมีการ postMessage ค่าใหม่จริงๆ (เหมือน widget ทั่วไป) ต้องเทียบกับ
+            # ค่าล่าสุดที่เรา "ประมวลผลไปแล้ว" (ไม่ใช่แค่เทียบกับ card_flipped
+            # ตรงๆ) ไม่งั้นปุ่มสำรอง "พลิกการ์ด" ด้านล่างจะโดนค่าเก่าที่ค้างอยู่
+            # ทับกลับทันทีทุกครั้ง
+            if _flip_result is not None:
+                _fr = bool(_flip_result)
+                if _fr != st.session_state.get('_last_flip_component_value'):
+                    st.session_state.card_flipped = _fr
+                    st.session_state._last_flip_component_value = _fr
+                    st.rerun()
+
+            # ปุ่มสำรอง เผื่อกรณี browser/Streamlit เวอร์ชันไหนไม่รองรับการส่งค่า
+            # กลับจาก components.html (ยังกดพลิกได้แน่ๆ ไม่ต้องพึ่ง JS bridge)
+            if st.button(
+                "🔄 พลิกการ์ด (ถ้าแตะการ์ดแล้วไม่ซิงก์)", use_container_width=True, key="flip_fallback_btn"
+            ):
+                st.session_state.card_flipped = not st.session_state.card_flipped
+                st.rerun()
 
             r1, r2 = st.columns(2)
             with r1:
@@ -1214,20 +1333,49 @@ body {{ background:transparent; }}
         if st.session_state.ai_panel_open and col_right:
             with col_right:
                 st.subheader("🤖 ผู้ช่วย")
+
+                # ── โหมดเฉลย ─────────────────────────────────────────────────
+                # - manual: กดปุ่ม 👁️ เฉลย เองทีละครั้ง (ค่าเริ่มต้น เหมือนเดิม)
+                # - always: เปิดค้างไว้ตลอด ไม่ต้องกด
+                # - sync_flip: เฉลยอัตโนมัติทันทีที่พลิกการ์ดฝั่งซ้าย (ซ่อนอีกที
+                #   เมื่อพลิกกลับ หรือเปลี่ยนไปคำใหม่)
+                _reveal_mode_labels = {
+                    "manual": "🙈 กดเฉลยเอง",
+                    "always": "👁️ เปิดค้างตลอด",
+                    "sync_flip": "🔄 เฉลยพร้อมพลิกการ์ด",
+                }
+                _mode_keys = list(_reveal_mode_labels.keys())
+                st.session_state.reveal_mode = st.radio(
+                    "โหมดเฉลย", _mode_keys,
+                    format_func=lambda k: _reveal_mode_labels[k],
+                    index=_mode_keys.index(st.session_state.reveal_mode),
+                    horizontal=True, label_visibility="collapsed", key="reveal_mode_radio",
+                )
+
+                if st.session_state.reveal_mode == "always":
+                    effective_reveal = True
+                elif st.session_state.reveal_mode == "sync_flip":
+                    effective_reveal = st.session_state.card_flipped
+                else:
+                    effective_reveal = st.session_state.reveal_side
+
                 hc, tc = st.columns([0.7, 0.3])
                 with hc:
                     st.markdown("**คำศัพท์:**")
                 with tc:
-                    lbl = "🙈 ซ่อน" if st.session_state.reveal_side else "👁️ เฉลย"
-                    if st.button(lbl, use_container_width=True, key="reveal_btn"):
-                        st.session_state.reveal_side = not st.session_state.reveal_side
-                        st.rerun()
+                    if st.session_state.reveal_mode == "manual":
+                        lbl = "🙈 ซ่อน" if st.session_state.reveal_side else "👁️ เฉลย"
+                        if st.button(lbl, use_container_width=True, key="reveal_btn"):
+                            st.session_state.reveal_side = not st.session_state.reveal_side
+                            st.rerun()
+                    else:
+                        st.caption("(ควบคุมจากโหมดด้านบน)")
 
                 current_word_text = st.session_state.current_word[word_col] if word_col else st.session_state.current_word['word']
                 pinyin_text = st.session_state.current_word.get(pinyin_col, st.session_state.current_word.get('pinyin', ''))
                 meaning_text = st.session_state.current_word.get(trans_th_col, st.session_state.current_word.get('trans_th', ''))
 
-                if st.session_state.reveal_side:
+                if effective_reveal:
                     pin = pinyin_text
                     mean = meaning_text
                 else:
@@ -1246,10 +1394,10 @@ body {{ background:transparent; }}
                 if ex_zh_val:
                     ex_lines.append(f"🇨🇳 {ex_zh_val}")
                 if ex_th_val:
-                    ex_th_show = ex_th_val if st.session_state.reveal_side else "●" * max(len(ex_th_val), 4)
+                    ex_th_show = ex_th_val if effective_reveal else "●" * max(len(ex_th_val), 4)
                     ex_lines.append(f"🇹🇭 {ex_th_show}")
                 if ex_en_val:
-                    ex_en_show = ex_en_val if st.session_state.reveal_side else "●" * max(len(ex_en_val), 4)
+                    ex_en_show = ex_en_val if effective_reveal else "●" * max(len(ex_en_val), 4)
                     ex_lines.append(f"🇬🇧 {ex_en_show}")
 
                 if ex_lines:
