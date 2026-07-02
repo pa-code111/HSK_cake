@@ -1,3 +1,7 @@
-streamlit
-pandas
-gTTS
+streamlit>=1.32.0
+pandas>=2.0.0
+gtts>=2.5.0
+gspread>=6.0.0
+google-auth>=2.28.0
+google-auth-oauthlib>=1.2.0
+requests>=2.31.0
