@@ -319,7 +319,7 @@ def _update_srs(word_id, correct):
     _save_progress()
 
 
-def pick_srs_word(pool_df):
+def pick_srs_word(pool_df, exclude_id=None):
     """Pick the next word to study from pool_df, prioritizing (in order):
     1) words that are 'due' for review, weakest box first
     2) brand-new words never studied yet
@@ -357,16 +357,58 @@ def pick_srs_word(pool_df):
     if not due_pool.empty:
         min_box = due_pool["box"].min()
         candidates = due_pool[due_pool["box"] == min_box]
-        return candidates.sample().iloc[0]
+        chosen = candidates.sample().iloc[0]
+        # avoid returning the same word immediately if possible
+        if exclude_id is not None and str(chosen.get("_id_str")) == str(exclude_id) and len(pool_df) > 1:
+            merged2 = merged[merged["_id_str"] != str(exclude_id)]
+            # recompute due/new/future on merged2
+            due2 = (~merged2["box"].isna()) & (pd.to_datetime(merged2["next_due"], errors="coerce") <= pd.Timestamp.now())
+            if due2.any():
+                mp = merged2[due2]
+                mb = mp["box"].min()
+                cand2 = mp[mp["box"] == mb]
+                return cand2.sample().iloc[0]
+            new2 = merged2[merged2["box"].isna()]
+            if not new2.empty:
+                return new2.sample().iloc[0]
+            fut2 = merged2[~merged2["box"].isna() & (pd.to_datetime(merged2["next_due"], errors="coerce") > pd.Timestamp.now())]
+            if not fut2.empty:
+                return fut2.sort_values("next_due").iloc[0]
+        return chosen
 
     new_pool = merged[is_new]
     if not new_pool.empty:
-        return new_pool.sample().iloc[0]
+        chosen = new_pool.sample().iloc[0]
+        if exclude_id is not None and str(chosen.get("_id_str")) == str(exclude_id) and len(pool_df) > 1:
+            merged2 = merged[merged["_id_str"] != str(exclude_id)]
+            future_pool2 = merged2[~merged2["box"].isna() & (pd.to_datetime(merged2["next_due"], errors="coerce") > pd.Timestamp.now())]
+            if not future_pool2.empty:
+                return future_pool2.sort_values("next_due").iloc[0]
+            return merged2.sample().iloc[0]
+        return chosen
 
     future_pool = merged[is_future]
     if not future_pool.empty:
-        return future_pool.sort_values("next_due").iloc[0]
+        chosen = future_pool.sort_values("next_due").iloc[0]
+        if exclude_id is not None and str(chosen.get("_id_str")) == str(exclude_id) and len(pool_df) > 1:
+            merged2 = merged[merged["_id_str"] != str(exclude_id)]
+            # try new or due in merged2
+            new2 = merged2[merged2["box"].isna()]
+            if not new2.empty:
+                return new2.sample().iloc[0]
+            due2 = (~merged2["box"].isna()) & (pd.to_datetime(merged2["next_due"], errors="coerce") <= pd.Timestamp.now())
+            if due2.any():
+                m2 = merged2[due2]
+                mb2 = m2["box"].min()
+                c2 = m2[m2["box"] == mb2]
+                return c2.sample().iloc[0]
+        return chosen
 
+    # fallback: avoid returning same id if possible
+    if exclude_id is not None and len(pool_df) > 1:
+        pool2 = pool_df[pool_df["id"].astype(str) != str(exclude_id)]
+        if not pool2.empty:
+            return pool2.sample().iloc[0]
     return pool_df.sample().iloc[0]
 
 
@@ -584,9 +626,9 @@ st.markdown("""
     background: rgba(0,0,0,0.06);
     border-left: 3px solid #FFD54F;
     border-radius: 8px;
-    padding: 10px 14px;
-    margin: 6px 0;
-    font-size: 14px;
+    padding: 6px 10px;
+    margin: 4px 0;
+    font-size: 12px;
     text-align: left;
 }
 .blurred {
@@ -602,6 +644,12 @@ st.markdown("""
     padding: 8px 10px;
     margin: 6px 0;
 }
+
+/* Compact AI panel */
+.ai-panel { font-size:13px; }
+.translate-result-box { padding: 8px 10px; font-size:13px; }
+.example-box { font-size:12px; padding:6px 10px; }
+.ai-panel .st-button button { padding:6px 8px !important; font-size:13px !important; }
 .search-result-word { font-size: 20px; font-weight: 800; }
 .search-result-meta { font-size: 12px; opacity: 0.85; }
 
@@ -997,74 +1045,23 @@ if "col_display_toggle" not in st.session_state:
         "example_en": True,
     }
 
+# keep col_mapping_show flag
 if "col_mapping_show" not in st.session_state:
     st.session_state.col_mapping_show = True
 
-# ─── Sidebar: column mapping ────────────────────────────────────────────────
-st.sidebar.markdown('<div class="sidebar-section-title">⚙️ การตั้งค่าคอลัมน์</div>', unsafe_allow_html=True)
+# ─── Sidebar: level selector (render controls early for visual order) ──────
+st.sidebar.markdown('<div class="sidebar-section-title">📊 เลเวล HSK</div>', unsafe_allow_html=True)
+if "level_filter" not in st.session_state:
+    st.session_state.level_filter = {lvl: True for lvl in HSK_LEVELS}
 
-with st.sidebar.expander("🔧 เลือกคอลัมน์จาก CSV", expanded=False):
-    avail_cols = ["(ไม่ใช้)"] + sorted(df.columns.tolist())
-    m = st.session_state.col_mapping
-
-    # สำคัญ: key ของแต่ละ selectbox ต้องเปลี่ยนไปตามไฟล์ที่อัปโหลด (ใช้
-    # _current_cols_signature ต่อท้าย key) ไม่งั้นจะเจอบั๊กแบบเดียวกับแท็บ
-    # นำทางเมื่อกี้ — คือ Streamlit จะยึดค่าที่เคยเลือกไว้ "ครั้งแรกที่สร้าง
-    # widget นี้" (เช่นตอนยังไม่ได้อัปโหลดไฟล์ ข้อมูลตัวอย่างไม่มีคอลัมน์
-    # example_zh/th/en เลย widget เลยค้างค่า "(ไม่ใช้)") แล้วไม่ยอมอัปเดตตาม
-    # index= ที่คำนวณใหม่อีกเลย แม้คอลัมน์ในไฟล์ใหม่จะมีอยู่จริงก็ตาม
-    _sig_tag = str(abs(hash(_current_cols_signature)))[:8]
-
-    new_id = st.selectbox("ID", avail_cols, index=avail_cols.index(m.get("id")) if m.get("id") in avail_cols else 0, key=f"sel_id_{_sig_tag}")
-    st.session_state.col_mapping["id"] = new_id if new_id != "(ไม่ใช้)" else None
-
-    new_hsk = st.selectbox("HSK Level", avail_cols, index=avail_cols.index(m.get("hsk_level")) if m.get("hsk_level") in avail_cols else 0, key=f"sel_hsk_{_sig_tag}")
-    st.session_state.col_mapping["hsk_level"] = new_hsk if new_hsk != "(ไม่ใช้)" else None
-
-    new_word = st.selectbox("คำจีน", avail_cols, index=avail_cols.index(m.get("word")) if m.get("word") in avail_cols else 0, key=f"sel_word_{_sig_tag}")
-    st.session_state.col_mapping["word"] = new_word if new_word != "(ไม่ใช้)" else None
-
-    new_pos_en = st.selectbox("ชนิดคำ (EN)", avail_cols, index=avail_cols.index(m.get("pos_en")) if m.get("pos_en") in avail_cols else 0, key=f"sel_pos_en_{_sig_tag}")
-    st.session_state.col_mapping["pos_en"] = new_pos_en if new_pos_en != "(ไม่ใช้)" else None
-
-    new_pos_th = st.selectbox("ชนิดคำ (TH)", avail_cols, index=avail_cols.index(m.get("pos_th")) if m.get("pos_th") in avail_cols else 0, key=f"sel_pos_th_{_sig_tag}")
-    st.session_state.col_mapping["pos_th"] = new_pos_th if new_pos_th != "(ไม่ใช้)" else None
-
-    new_pos_zh = st.selectbox("ชนิดคำ (ZH)", avail_cols, index=avail_cols.index(m.get("pos_zh")) if m.get("pos_zh") in avail_cols else 0, key=f"sel_pos_zh_{_sig_tag}")
-    st.session_state.col_mapping["pos_zh"] = new_pos_zh if new_pos_zh != "(ไม่ใช้)" else None
-
-    new_pin = st.selectbox("พินอิน", avail_cols, index=avail_cols.index(m.get("pinyin")) if m.get("pinyin") in avail_cols else 0, key=f"sel_pin_{_sig_tag}")
-    st.session_state.col_mapping["pinyin"] = new_pin if new_pin != "(ไม่ใช้)" else None
-
-    new_trans_th = st.selectbox("แปลไทย", avail_cols, index=avail_cols.index(m.get("trans_th")) if m.get("trans_th") in avail_cols else 0, key=f"sel_trans_th_{_sig_tag}")
-    st.session_state.col_mapping["trans_th"] = new_trans_th if new_trans_th != "(ไม่ใช้)" else None
-
-    new_trans_en = st.selectbox("แปลอังกฤษ", avail_cols, index=avail_cols.index(m.get("trans_en")) if m.get("trans_en") in avail_cols else 0, key=f"sel_trans_en_{_sig_tag}")
-    st.session_state.col_mapping["trans_en"] = new_trans_en if new_trans_en != "(ไม่ใช้)" else None
-
-    new_ex_zh = st.selectbox("ตัวอย่างประโยค (ZH)", avail_cols, index=avail_cols.index(m.get("example_zh")) if m.get("example_zh") in avail_cols else 0, key=f"sel_ex_zh_{_sig_tag}")
-    st.session_state.col_mapping["example_zh"] = new_ex_zh if new_ex_zh != "(ไม่ใช้)" else None
-
-    new_ex_th = st.selectbox("ตัวอย่างประโยค (TH)", avail_cols, index=avail_cols.index(m.get("example_th")) if m.get("example_th") in avail_cols else 0, key=f"sel_ex_th_{_sig_tag}")
-    st.session_state.col_mapping["example_th"] = new_ex_th if new_ex_th != "(ไม่ใช้)" else None
-
-    new_ex_en = st.selectbox("ตัวอย่างประโยค (EN)", avail_cols, index=avail_cols.index(m.get("example_en")) if m.get("example_en") in avail_cols else 0, key=f"sel_ex_en_{_sig_tag}")
-    st.session_state.col_mapping["example_en"] = new_ex_en if new_ex_en != "(ไม่ใช้)" else None
-
-st.sidebar.markdown("**เลือกคอลัมน์ที่จะแสดง:**")
-
-st.session_state.col_display_toggle["id"] = st.sidebar.checkbox("ID", st.session_state.col_display_toggle.get("id", True), key="tog_id")
-st.session_state.col_display_toggle["hsk_level"] = st.sidebar.checkbox("HSK", st.session_state.col_display_toggle.get("hsk_level", True), key="tog_hsk")
-st.session_state.col_display_toggle["word"] = st.sidebar.checkbox("คำจีน", st.session_state.col_display_toggle.get("word", True), key="tog_word")
-st.session_state.col_display_toggle["pinyin"] = st.sidebar.checkbox("พินอิน", st.session_state.col_display_toggle.get("pinyin", True), key="tog_pin")
-st.session_state.col_display_toggle["pos_en"] = st.sidebar.checkbox("ชนิดคำ (EN)", st.session_state.col_display_toggle.get("pos_en", True), key="tog_pos_en")
-st.session_state.col_display_toggle["pos_th"] = st.sidebar.checkbox("ชนิดคำ (TH)", st.session_state.col_display_toggle.get("pos_th", False), key="tog_pos_th")
-st.session_state.col_display_toggle["pos_zh"] = st.sidebar.checkbox("ชนิดคำ (ZH)", st.session_state.col_display_toggle.get("pos_zh", False), key="tog_pos_zh")
-st.session_state.col_display_toggle["trans_th"] = st.sidebar.checkbox("แปลไทย", st.session_state.col_display_toggle.get("trans_th", True), key="tog_trans_th")
-st.session_state.col_display_toggle["trans_en"] = st.sidebar.checkbox("แปลอังกฤษ", st.session_state.col_display_toggle.get("trans_en", False), key="tog_trans_en")
-st.session_state.col_display_toggle["example_zh"] = st.sidebar.checkbox("ตัวอย่างประโยค (ZH)", st.session_state.col_display_toggle.get("example_zh", True), key="tog_ex_zh")
-st.session_state.col_display_toggle["example_th"] = st.sidebar.checkbox("ตัวอย่างประโยค (TH)", st.session_state.col_display_toggle.get("example_th", True), key="tog_ex_th")
-st.session_state.col_display_toggle["example_en"] = st.sidebar.checkbox("ตัวอย่างประโยค (EN)", st.session_state.col_display_toggle.get("example_en", False), key="tog_ex_en")
+# render checkboxes (will be applied after search when computing filtered_df)
+for i, lvl in enumerate(HSK_LEVELS):
+    # placeholder disabled state will be updated when computing levels_data
+    if i % 2 == 0:
+        c1, c2 = st.sidebar.columns(2)
+    with (c1 if i % 2 == 0 else c2):
+        # default to previous choice or checked
+        st.session_state.level_filter[lvl] = st.checkbox(f"HSK {lvl}", st.session_state.level_filter.get(lvl, True), key=f"lv_{lvl}")
 
 # ─── Get column names ─────────────────────────────────────────────────────────
 word_col = st.session_state.col_mapping.get("word", "word")
@@ -1207,26 +1204,30 @@ if query:
         if len(search_results_df) > PREVIEW_SHOWN:
             st.sidebar.caption(f"...และอีก {len(search_results_df) - PREVIEW_SHOWN} คำ — พิมพ์ให้เจาะจงขึ้น หรือกดคำใดคำหนึ่งด้านบนเพื่อไปหน้า 'คำศัพท์' แล้วดูทั้งหมด")
 
+# assign the search results (or original df if no search)
     df = search_results_df
 
-# ─── Sidebar: level selector ────────────────────────────────────────────────
-st.sidebar.markdown('<div class="sidebar-section-title">📊 เลเวล HSK</div>', unsafe_allow_html=True)
+# ─── Sidebar: column display toggles (compact two-columns) ────────────────
+st.sidebar.markdown('<div class="sidebar-section-title">⚙️ การตั้งค่าคอลัมน์</div>', unsafe_allow_html=True)
+cols_to_show = [
+    ("id", "ID"), ("hsk_level", "HSK"), ("word", "คำจีน"), ("pinyin", "พินอิน"),
+    ("pos_en", "ชนิดคำ (EN)"), ("pos_th", "ชนิดคำ (TH)"), ("pos_zh", "ชนิดคำ (ZH)"),
+    ("trans_th", "แปลไทย"), ("trans_en", "แปลอังกฤษ"), ("example_zh", "ตัวอย่าง (ZH)"),
+    ("example_th", "ตัวอย่าง (TH)"), ("example_en", "ตัวอย่าง (EN)")
+]
 
-if "level_filter" not in st.session_state:
-    st.session_state.level_filter = {lvl: True for lvl in HSK_LEVELS}
+for i in range(0, len(cols_to_show), 2):
+    c1, c2 = st.sidebar.columns(2)
+    key1, label1 = cols_to_show[i]
+    with c1:
+        st.session_state.col_display_toggle[key1] = st.checkbox(label1, st.session_state.col_display_toggle.get(key1, True), key=f"tog_{key1}")
+    if i + 1 < len(cols_to_show):
+        key2, label2 = cols_to_show[i + 1]
+        with c2:
+            st.session_state.col_display_toggle[key2] = st.checkbox(label2, st.session_state.col_display_toggle.get(key2, False if key2.startswith('pos_') else True), key=f"tog_{key2}")
 
+# ─── Sidebar: level selector (compute active levels and filtered_df) ─────
 levels_data = set(df['hsk_level'].unique())
-
-for i, lvl in enumerate(HSK_LEVELS):
-    has_data = lvl in levels_data
-    if i % 2 == 0:
-        c1, c2 = st.sidebar.columns(2)
-    with (c1 if i % 2 == 0 else c2):
-        if has_data:
-            st.session_state.level_filter[lvl] = st.checkbox(f"HSK {lvl}", st.session_state.level_filter.get(lvl, True), key=f"lv_{lvl}")
-        else:
-            st.markdown(f"<span style='opacity:0.3;'>HSK {lvl}</span>", unsafe_allow_html=True)
-
 selected_levels = [l for l in HSK_LEVELS if st.session_state.level_filter.get(l) and l in levels_data]
 filtered_df = df[df['hsk_level'].isin(selected_levels)] if selected_levels else df.iloc[0:0]
 
@@ -1248,6 +1249,12 @@ ai_label = ("🤖 AI เปิด" if st.session_state.ai_panel_open else "🤖 
 if st.sidebar.button(ai_label, use_container_width=True, key="ai_sidebar_btn"):
     st.session_state.ai_panel_open = not st.session_state.ai_panel_open
     st.rerun()
+
+# Quiz preferences
+if "quiz_auto_next" not in st.session_state:
+    st.session_state.quiz_auto_next = False
+# Create the checkbox; Streamlit will set `st.session_state['quiz_auto_next']` automatically.
+st.sidebar.checkbox("เลื่อนไปข้อถัดไปอัตโนมัติเมื่อตอบ", value=st.session_state.get("quiz_auto_next", False), key="quiz_auto_next")
 
 # ── สรุปคำที่ถึงกำหนดทบทวนวันนี้ (SRS) + ปุ่มล้างความคืบหน้า ──────────────
 _backend = st.session_state.get("_progress_backend", "local")
@@ -1275,7 +1282,7 @@ if "confirm_reset_progress" not in st.session_state:
     st.session_state.confirm_reset_progress = False
 
 if not st.session_state.confirm_reset_progress:
-    if st.sidebar.button("🗑️ ล้างความคืบหน้าทั้งหมด", use_container_width=True, key="reset_progress_btn"):
+    if st.sidebar.button("🗑️ ล้างความคืบหน้าทั้งหมดของผู้เล่นปัจจุบัน", use_container_width=True, key="reset_progress_btn"):
         st.session_state.confirm_reset_progress = True
         st.rerun()
 else:
@@ -1283,11 +1290,15 @@ else:
     rc1, rc2 = st.sidebar.columns(2)
     with rc1:
         if st.button("✅ ยืนยัน", use_container_width=True, key="reset_progress_confirm"):
-            st.session_state.srs_data = {}
-            st.session_state.play_history = []
-            st.session_state.remembered = []
-            st.session_state.forgotten = []
-            st.session_state.players_data = {}
+            # Only clear data for current player locally and in history
+            name = _current_player_name()
+            st.session_state.srs_data.pop(name, None)
+            # filter out this player's history entries
+            st.session_state.play_history = [h for h in st.session_state.play_history if h.get('ผู้เล่น') != name]
+            # remembered/forgotten lists are per-player; reset entries for this player only
+            st.session_state.remembered = [r for r in st.session_state.remembered if r.get('ผู้เล่น') != name]
+            st.session_state.forgotten = [f for f in st.session_state.forgotten if f.get('ผู้เล่น') != name]
+            st.session_state.players_data.pop(name, None)
             _save_progress()
             st.session_state.confirm_reset_progress = False
             st.rerun()
@@ -1323,8 +1334,13 @@ if active_tab_choice == "🎴 Flashcard":
         if 'current_word' not in st.session_state or st.session_state.get('current_word_level') not in selected_levels:
             st.session_state.current_word = pick_srs_word(filtered_df)
             st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
+            # Ensure flip state is reset for this new word and bump generation
+            st.session_state.card_flipped = False
+            st.session_state._last_flip_component_value = None
+            st.session_state.flip_generation = st.session_state.get('flip_generation', 0) + 1
+            st.session_state.audio_played = False
 
-        for k, v in [('card_flipped', False), ('audio_played', False), ('remembered', []), ('forgotten', []), ('play_history', []), ('ai_response', None), ('ai_response_word', None), ('reveal_side', False), ('last_word_id', None), ('show_translate_options', False), ('card_translate_result', None), ('card_translate_word', None), ('flip_generation', 0), ('_last_flip_component_value', None), ('reveal_mode', 'manual')]:
+        for k, v in [('card_flipped', False), ('audio_played', False), ('remembered', []), ('forgotten', []), ('play_history', []), ('ai_response', None), ('ai_response_word', None), ('reveal_side', False), ('last_word_id', None), ('show_translate_options', False), ('card_translate_result', None), ('card_translate_word', None), ('flip_generation', 0), ('_last_flip_component_value', None), ('reveal_mode', 'sync_flip')]:
             if k not in st.session_state:
                 st.session_state[k] = v
 
@@ -1352,11 +1368,15 @@ if active_tab_choice == "🎴 Flashcard":
                     "คำแปล": w.get(trans_th_col, w.get('trans_th', '')),
                     "HSK": w.get('hsk_level_label', w['hsk_level']),
                     "ผล": "✅ จำได้" if feedback == "remembered" else "❌ จำไม่ได้",
+                    "ผู้เล่น": _current_player_name(),
+                    "โหมด": "Flashcard",
                 })
                 # อัปเดต spaced-repetition box ของคำนี้ + บันทึกความคืบหน้าลงดิสก์
                 _update_srs(w.get('id'), correct=(feedback == "remembered"))
 
-            st.session_state.current_word = pick_srs_word(filtered_df)
+            # pick next word, try to avoid repeating the same word immediately
+            prev_id = w.get('id')
+            st.session_state.current_word = pick_srs_word(filtered_df, exclude_id=prev_id)
             st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
             st.session_state.card_flipped = False
             st.session_state._last_flip_component_value = None
@@ -1499,10 +1519,11 @@ body {{ background:transparent; }}
 </style>
 </head>
 <body>
-<div class="flip-card {flipped_class}" id="card-{flip_gen}" onclick="
+    <div class="flip-card {flipped_class}" id="card-{flip_gen}" onclick="
     this.classList.toggle('flipped');
     var flipped = this.classList.contains('flipped');
-    window.parent.postMessage({{type: 'streamlit:setComponentValue', value: flipped}}, '*');
+    var gen = {flip_gen};
+    window.parent.postMessage({{type: 'streamlit:setComponentValue', value: {{'flipped': flipped, 'gen': gen}}}}, '*');
 ">
     <div class="flip-card-inner">
         <div class="flip-card-front">
@@ -1536,11 +1557,34 @@ body {{ background:transparent; }}
             # ตรงๆ) ไม่งั้นปุ่มสำรอง "พลิกการ์ด" ด้านล่างจะโดนค่าเก่าที่ค้างอยู่
             # ทับกลับทันทีทุกครั้ง
             if _flip_result is not None:
-                _fr = bool(_flip_result)
-                if _fr != st.session_state.get('_last_flip_component_value'):
-                    st.session_state.card_flipped = _fr
-                    st.session_state._last_flip_component_value = _fr
-                    st.rerun()
+                # component returns a dict {'flipped': bool, 'gen': int} when supported
+                val = None
+                gen = None
+                try:
+                    if isinstance(_flip_result, dict):
+                        val = bool(_flip_result.get('flipped'))
+                        gen = _flip_result.get('gen')
+                        try:
+                            gen = int(gen)
+                        except Exception:
+                            gen = None
+                    else:
+                        val = bool(_flip_result)
+                except Exception:
+                    val = bool(_flip_result)
+
+                # Only accept values that match the current generation to avoid stale messages
+                if gen is not None:
+                    if gen == st.session_state.get('flip_generation') and val != st.session_state.get('_last_flip_component_value'):
+                        st.session_state.card_flipped = val
+                        st.session_state._last_flip_component_value = val
+                        st.rerun()
+                else:
+                    # fallback for older behavior
+                    if val != st.session_state.get('_last_flip_component_value'):
+                        st.session_state.card_flipped = val
+                        st.session_state._last_flip_component_value = val
+                        st.rerun()
 
             # ปุ่มสำรอง เผื่อกรณี browser/Streamlit เวอร์ชันไหนไม่รองรับการส่งค่า
             # กลับจาก components.html (ยังกดพลิกได้แน่ๆ ไม่ต้องพึ่ง JS bridge)
@@ -1593,11 +1637,13 @@ body {{ background:transparent; }}
                 # - sync_flip: เฉลยอัตโนมัติทันทีที่พลิกการ์ดฝั่งซ้าย (ซ่อนอีกที
                 #   เมื่อพลิกกลับ หรือเปลี่ยนไปคำใหม่)
                 _reveal_mode_labels = {
-                    "manual": "🙈 กดเฉลยเอง",
                     "always": "👁️ เปิดค้างตลอด",
                     "sync_flip": "🔄 เฉลยพร้อมพลิกการ์ด",
                 }
                 _mode_keys = list(_reveal_mode_labels.keys())
+                # ensure reveal_mode is valid
+                if st.session_state.reveal_mode not in _mode_keys:
+                    st.session_state.reveal_mode = 'sync_flip'
                 st.session_state.reveal_mode = st.radio(
                     "โหมดเฉลย", _mode_keys,
                     format_func=lambda k: _reveal_mode_labels[k],
@@ -1607,22 +1653,19 @@ body {{ background:transparent; }}
 
                 if st.session_state.reveal_mode == "always":
                     effective_reveal = True
-                elif st.session_state.reveal_mode == "sync_flip":
-                    effective_reveal = st.session_state.card_flipped
                 else:
-                    effective_reveal = st.session_state.reveal_side
+                    # sync_flip: reveal follows the actual flipped state
+                    effective_reveal = st.session_state.card_flipped
 
                 hc, tc = st.columns([0.7, 0.3])
                 with hc:
                     st.markdown("**คำศัพท์:**")
                 with tc:
-                    if st.session_state.reveal_mode == "manual":
-                        lbl = "🙈 ซ่อน" if st.session_state.reveal_side else "👁️ เฉลย"
-                        if st.button(lbl, use_container_width=True, key="reveal_btn"):
-                            st.session_state.reveal_side = not st.session_state.reveal_side
-                            st.rerun()
+                    # display compact hint about current mode
+                    if st.session_state.reveal_mode == "always":
+                        st.caption("(เฉลยเปิดค้างตลอด)")
                     else:
-                        st.caption("(ควบคุมจากโหมดด้านบน)")
+                        st.caption("(เฉลยตามการพลิกการ์ด)")
 
                 current_word_text = st.session_state.current_word[word_col] if word_col else st.session_state.current_word['word']
                 pinyin_text = st.session_state.current_word.get(pinyin_col, st.session_state.current_word.get('pinyin', ''))
@@ -1743,6 +1786,8 @@ elif active_tab_choice == "🎯 Quiz":
             st.session_state.quiz_answered = False
             st.session_state.quiz_selected = None
             st.session_state.quiz_correct = None
+            # reset per-question audio flag
+            st.session_state.quiz_audio_played = False
 
         if st.session_state.quiz_question is None:
             _new_quiz_question()
@@ -1773,12 +1818,25 @@ elif active_tab_choice == "🎯 Quiz":
             ]
         else:
             st.info(f"HSK {target_level} — กดฟังเสียงแล้วเลือกคำจีนที่ถูกต้อง")
+            # Play audio once per question; allow manual replay button
+            if "quiz_audio_played" not in st.session_state:
+                st.session_state.quiz_audio_played = False
+
             if st.button("🔊 ฟังเสียง", use_container_width=True, key="quiz_listen_btn"):
-                audio_fp = speak_word(target_word)
-                st.audio(audio_fp.getvalue(), format="audio/mp3", autoplay=True)
-            if not st.session_state.quiz_answered:
-                audio_fp = speak_word(target_word)
-                st.audio(audio_fp.getvalue(), format="audio/mp3", autoplay=True)
+                try:
+                    audio_fp = speak_word(target_word)
+                    st.audio(audio_fp.getvalue(), format="audio/mp3", autoplay=True)
+                    st.session_state.quiz_audio_played = True
+                except Exception as e:
+                    st.warning(f"ไม่สามารถเล่นเสียงได้: {e}")
+
+            if not st.session_state.quiz_answered and not st.session_state.quiz_audio_played:
+                try:
+                    audio_fp = speak_word(target_word)
+                    st.audio(audio_fp.getvalue(), format="audio/mp3", autoplay=True)
+                    st.session_state.quiz_audio_played = True
+                except Exception as e:
+                    st.warning(f"ไม่สามารถเล่นเสียงอัตโนมัติได้: {e}")
             st.markdown("**เลือกคำจีนที่ได้ยิน:**")
             option_labels = [
                 str(opt[word_col] if word_col else opt["word"]) for opt in st.session_state.quiz_options
@@ -1816,8 +1874,15 @@ elif active_tab_choice == "🎯 Quiz":
                     "คำแปล": target_meaning,
                     "HSK": target_level,
                     "ผล": "✅ จำได้" if correct else "❌ จำไม่ได้",
+                    "ผู้เล่น": _current_player_name(),
+                    "โหมด": "Quiz",
                 })
-                st.rerun()
+                # auto-next behavior
+                if st.session_state.get('quiz_auto_next'):
+                    _new_quiz_question()
+                    st.rerun()
+                else:
+                    st.rerun()
 
         if st.session_state.quiz_answered:
             if st.session_state.quiz_correct:
@@ -2092,28 +2157,57 @@ elif active_tab_choice == "📋 ประวัติ":
             st.session_state.srs_data = _fresh.get("srs", {})
             st.session_state.play_history = _fresh.get("history", [])
             st.rerun()
-    players = st.session_state.get("players_data", {})
-    if not players:
-        st.info("ยังไม่มีใครเล่นเลย — พิมพ์ชื่อใน sidebar แล้วเริ่มตอบคำถามได้เลย")
+    # allow switching leaderboard aggregation by mode
+    lb_mode = st.selectbox("แสดง Leaderboard ตามโหมด", ["ทั้งหมด", "Flashcard", "Quiz"], index=0, key="leaderboard_mode")
+
+    # Build per-mode leaderboard from play_history when requested
+    if lb_mode == "ทั้งหมด":
+        players = st.session_state.get("players_data", {})
+        if not players:
+            st.info("ยังไม่มีใครเล่นเลย — พิมพ์ชื่อใน sidebar แล้วเริ่มตอบคำถามได้เลย")
+        else:
+            rows = []
+            for name, p in players.items():
+                total = p.get("total", 0)
+                correct = p.get("correct", 0)
+                acc = round(correct / total * 100, 1) if total else 0.0
+                rows.append({
+                    "ผู้เล่น": name,
+                    "ตอบถูก": correct,
+                    "ตอบทั้งหมด": total,
+                    "ความแม่นยำ (%)": acc,
+                    "เล่นล่าสุด": p.get("last_active", "")[:19].replace("T", " ") if p.get("last_active") else "",
+                })
+            board_df = pd.DataFrame(rows).sort_values(
+                by=["ความแม่นยำ (%)", "ตอบถูก"], ascending=[False, False]
+            ).reset_index(drop=True)
     else:
-        rows = []
-        for name, p in players.items():
-            total = p.get("total", 0)
-            correct = p.get("correct", 0)
-            acc = round(correct / total * 100, 1) if total else 0.0
-            rows.append({
-                "ผู้เล่น": name,
-                "ตอบถูก": correct,
-                "ตอบทั้งหมด": total,
-                "ความแม่นยำ (%)": acc,
-                "เล่นล่าสุด": p.get("last_active", "")[:19].replace("T", " ") if p.get("last_active") else "",
-            })
-        board_df = pd.DataFrame(rows).sort_values(
-            by=["ความแม่นยำ (%)", "ตอบถูก"], ascending=[False, False]
-        ).reset_index(drop=True)
-        board_df.insert(0, "อันดับ", [f"🥇" if i == 0 else f"🥈" if i == 1 else f"🥉" if i == 2 else str(i + 1) for i in range(len(board_df))])
+        # compute from history entries limited to chosen mode
+        hist = st.session_state.get("play_history", [])
+        mode = lb_mode
+        if not hist:
+            st.info("ยังไม่มีใครเล่นเลย")
+            board_df = pd.DataFrame(columns=["อันดับ", "ผู้เล่น", "ตอบถูก", "ตอบทั้งหมด", "ความแม่นยำ (%)", "เล่นล่าสุด"])
+        else:
+            df_hist = pd.DataFrame(hist)
+            df_mode = df_hist[df_hist.get("โหมด") == mode]
+            agg = df_mode.groupby("ผู้เล่น").agg(
+                ตอบถูก=("ผล", lambda s: (s == "✅ จำได้").sum()),
+                ตอบทั้งหมด=("ผล", "count"),
+                เล่นล่าสุด=("เวลา", "last")
+            ).reset_index()
+            if agg.empty:
+                board_df = pd.DataFrame(columns=["อันดับ", "ผู้เล่น", "ตอบถูก", "ตอบทั้งหมด", "ความแม่นยำ (%)", "เล่นล่าสุด"])
+            else:
+                agg["ความแม่นยำ (%)"] = (agg["ตอบถูก"] / agg["ตอบทั้งหมด"] * 100).round(1)
+                agg = agg.sort_values(by=["ความแม่นยำ (%)", "ตอบถูก"], ascending=[False, False]).reset_index(drop=True)
+                agg.insert(0, "อันดับ", [f"🥇" if i == 0 else f"🥈" if i == 1 else f"🥉" if i == 2 else str(i + 1) for i in range(len(agg))])
+                board_df = agg
+
+    if not board_df.empty:
         me = _current_player_name()
-        board_df["ผู้เล่น"] = board_df["ผู้เล่น"].apply(lambda n: f"⭐ {n} (คุณ)" if n == me else n)
+        if "ผู้เล่น" in board_df.columns:
+            board_df["ผู้เล่น"] = board_df["ผู้เล่น"].apply(lambda n: f"⭐ {n} (คุณ)" if n == me else n)
         st.dataframe(board_df, use_container_width=True, hide_index=True)
 
     st.divider()
@@ -2122,7 +2216,14 @@ elif active_tab_choice == "📋 ประวัติ":
     if not history:
         st.info("ยังไม่มีประวัติ")
     else:
-        hist_df = pd.DataFrame(history[::-1])
+        hist_df_all = pd.DataFrame(history[::-1])
+        # allow filtering history by mode
+        hist_mode = st.selectbox("กรองประวัติตามโหมด", ["ทั้งหมด", "Flashcard", "Quiz"], index=0, key="history_mode")
+        if hist_mode == "ทั้งหมด":
+            hist_df = hist_df_all
+        else:
+            hist_df = hist_df_all[hist_df_all.get("โหมด") == hist_mode]
+
         total, ok, no = len(hist_df), (hist_df["ผล"] == "✅ จำได้").sum(), (hist_df["ผล"] == "❌ จำไม่ได้").sum()
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("📊 ทั้งหมด", total)
@@ -2136,9 +2237,13 @@ elif active_tab_choice == "📋 ประวัติ":
         c1, c2 = st.columns([0.3, 0.7])
         with c1:
             if st.button("🗑️ ล้าง", use_container_width=True, key="clear_btn"):
-                st.session_state.play_history = []
+                if hist_mode == "ทั้งหมด":
+                    st.session_state.play_history = []
+                else:
+                    # remove only entries of this mode
+                    st.session_state.play_history = [h for h in st.session_state.play_history if h.get("โหมด") != hist_mode]
                 st.rerun()
         with c2:
-            csv = pd.DataFrame(history).to_csv(index=False).encode('utf-8')
-            st.download_button("⬇️ ดาวน์โหลด", csv, 'history.csv', 'text/csv', use_container_width=True)
+            csv = hist_df.to_csv(index=False).encode('utf-8')
+            st.download_button("⬇️ ดาวน์โหลด (ผลกรองแล้ว)", csv, 'history.csv', 'text/csv', use_container_width=True)
         
