@@ -781,9 +781,8 @@ if st.sidebar.button("🔄 เปลี่ยนผู้ใช้", use_contain
     st.rerun()
 
 
-# ─── Sidebar: data source ────────────────────────────────────────────────────
-st.sidebar.header("แหล่งข้อมูล")
-uploaded = st.sidebar.file_uploader("อัปโหลดไฟล์ CSV/Excel", type=["csv", "xlsx", "xls"])
+# ─── Sidebar: data source (widget จะถูกวาดที่ตำแหน่ง Step 5 ตามลำดับ UI ที่ต้องการ) ──
+uploaded = st.session_state.get("_uploaded_file_widget_value", None)
 
 
 def _norm_header(c):
@@ -1049,19 +1048,20 @@ if "col_display_toggle" not in st.session_state:
 if "col_mapping_show" not in st.session_state:
     st.session_state.col_mapping_show = True
 
-# ─── Sidebar: level selector (render controls early for visual order) ──────
-st.sidebar.markdown('<div class="sidebar-section-title">📊 เลเวล HSK</div>', unsafe_allow_html=True)
+# ─── 2) Sidebar: เลือกเลเวล HSK (ย่อ/ขยายได้) ───────────────────────────────
 if "level_filter" not in st.session_state:
     st.session_state.level_filter = {lvl: True for lvl in HSK_LEVELS}
 
-# render checkboxes (will be applied after search when computing filtered_df)
-for i, lvl in enumerate(HSK_LEVELS):
-    # placeholder disabled state will be updated when computing levels_data
-    if i % 2 == 0:
-        c1, c2 = st.sidebar.columns(2)
-    with (c1 if i % 2 == 0 else c2):
-        # default to previous choice or checked
-        st.session_state.level_filter[lvl] = st.checkbox(f"HSK {lvl}", st.session_state.level_filter.get(lvl, True), key=f"lv_{lvl}")
+with st.sidebar.expander("📊 เลือกเลเวล HSK", expanded=True):
+    for i, lvl in enumerate(HSK_LEVELS):
+        if i % 2 == 0:
+            c1, c2 = st.sidebar.columns(2)
+        with (c1 if i % 2 == 0 else c2):
+            st.session_state.level_filter[lvl] = st.checkbox(
+                f"HSK {lvl}",
+                st.session_state.level_filter.get(lvl, True),
+                key=f"lv_{lvl}",
+            )
 
 # ─── Get column names ─────────────────────────────────────────────────────────
 word_col = st.session_state.col_mapping.get("word", "word")
@@ -1207,32 +1207,41 @@ if query:
 # assign the search results (or original df if no search)
     df = search_results_df
 
-# ─── Sidebar: column display toggles (compact two-columns) ────────────────
-st.sidebar.markdown('<div class="sidebar-section-title">⚙️ การตั้งค่าคอลัมน์</div>', unsafe_allow_html=True)
-cols_to_show = [
-    ("id", "ID"), ("hsk_level", "HSK"), ("word", "คำจีน"), ("pinyin", "พินอิน"),
-    ("pos_en", "ชนิดคำ (EN)"), ("pos_th", "ชนิดคำ (TH)"), ("pos_zh", "ชนิดคำ (ZH)"),
-    ("trans_th", "แปลไทย"), ("trans_en", "แปลอังกฤษ"), ("example_zh", "ตัวอย่าง (ZH)"),
-    ("example_th", "ตัวอย่าง (TH)"), ("example_en", "ตัวอย่าง (EN)")
-]
+# ─── 4) Sidebar: การตั้งค่าคอลัมน์ที่แสดง (ย่อ/ขยายได้) ─────────────────────
+with st.sidebar.expander("⚙️ การตั้งค่าคอลัมน์ที่แสดง", expanded=True):
+    cols_to_show = [
+        ("id", "ID"), ("hsk_level", "HSK"), ("word", "คำจีน"), ("pinyin", "พินอิน"),
+        ("pos_en", "ชนิดคำ (EN)"), ("pos_th", "ชนิดคำ (TH)"), ("pos_zh", "ชนิดคำ (ZH)"),
+        ("trans_th", "แปลไทย"), ("trans_en", "แปลอังกฤษ"), ("example_zh", "ตัวอย่าง (ZH)"),
+        ("example_th", "ตัวอย่าง (TH)"), ("example_en", "ตัวอย่าง (EN)")
+    ]
 
-for i in range(0, len(cols_to_show), 2):
-    c1, c2 = st.sidebar.columns(2)
-    key1, label1 = cols_to_show[i]
-    with c1:
-        st.session_state.col_display_toggle[key1] = st.checkbox(label1, st.session_state.col_display_toggle.get(key1, True), key=f"tog_{key1}")
-    if i + 1 < len(cols_to_show):
-        key2, label2 = cols_to_show[i + 1]
-        with c2:
-            st.session_state.col_display_toggle[key2] = st.checkbox(label2, st.session_state.col_display_toggle.get(key2, False if key2.startswith('pos_') else True), key=f"tog_{key2}")
+    for i in range(0, len(cols_to_show), 2):
+        c1, c2 = st.sidebar.columns(2)
+        key1, label1 = cols_to_show[i]
+        with c1:
+            st.session_state.col_display_toggle[key1] = st.checkbox(label1, st.session_state.col_display_toggle.get(key1, True), key=f"tog_{key1}")
+        if i + 1 < len(cols_to_show):
+            key2, label2 = cols_to_show[i + 1]
+            with c2:
+                st.session_state.col_display_toggle[key2] = st.checkbox(label2, st.session_state.col_display_toggle.get(key2, False if key2.startswith('pos_') else True), key=f"tog_{key2}")
+
+# ─── 5) Sidebar: แหล่งข้อมูล ────────────────────────────────────────────────
+st.sidebar.markdown('<div class="sidebar-section-title">📂 แหล่งข้อมูล</div>', unsafe_allow_html=True)
+st.sidebar.caption("ไม่จำเป็นต้องอัปโหลดไฟล์ — ระบบมีชุดคำศัพท์เริ่มต้นให้แล้ว อัปโหลดเฉพาะกรณีต้องการใช้ไฟล์คำศัพท์ของตัวเอง (CSV/Excel)")
+uploaded = st.sidebar.file_uploader("อัปโหลดไฟล์ CSV/Excel", type=["csv", "xlsx", "xls"], key="_uploaded_file_widget_value")
+if uploaded is not None:
+    st.sidebar.success(f"✅ ใช้ไฟล์: {uploaded.name}")
+else:
+    st.sidebar.info("📦 กำลังใช้ชุดคำศัพท์เริ่มต้นของระบบ")
+
+# ─── 6) Sidebar: settings ────────────────────────────────────────────────────────
+st.sidebar.markdown('<div class="sidebar-section-title">⚙️ ตั้งค่า</div>', unsafe_allow_html=True)
 
 # ─── Sidebar: level selector (compute active levels and filtered_df) ─────
 levels_data = set(df['hsk_level'].unique())
 selected_levels = [l for l in HSK_LEVELS if st.session_state.level_filter.get(l) and l in levels_data]
 filtered_df = df[df['hsk_level'].isin(selected_levels)] if selected_levels else df.iloc[0:0]
-
-# ─── Sidebar: settings ────────────────────────────────────────────────────────
-st.sidebar.markdown('<div class="sidebar-section-title">⚙️ ตั้งค่า</div>', unsafe_allow_html=True)
 
 if "audio_enabled" not in st.session_state:
     st.session_state.audio_enabled = True
@@ -1252,9 +1261,9 @@ if st.sidebar.button(ai_label, use_container_width=True, key="ai_sidebar_btn"):
 
 # Quiz preferences
 if "quiz_auto_next" not in st.session_state:
-    st.session_state.quiz_auto_next = False
+    st.session_state.quiz_auto_next = True
 # Create the checkbox; Streamlit will set `st.session_state['quiz_auto_next']` automatically.
-st.sidebar.checkbox("เลื่อนไปข้อถัดไปอัตโนมัติเมื่อตอบ", value=st.session_state.get("quiz_auto_next", False), key="quiz_auto_next")
+st.sidebar.checkbox("เลื่อนไปข้อถัดไปอัตโนมัติเมื่อตอบ", value=st.session_state.get("quiz_auto_next", True), key="quiz_auto_next")
 
 # ── สรุปคำที่ถึงกำหนดทบทวนวันนี้ (SRS) + ปุ่มล้างความคืบหน้า ──────────────
 _backend = st.session_state.get("_progress_backend", "local")
@@ -1752,7 +1761,7 @@ elif active_tab_choice == "🎯 Quiz":
         st.markdown("### 🎯 Quiz")
 
         if "quiz_mode" not in st.session_state:
-            st.session_state.quiz_mode = "meaning"  # "meaning" หรือ "listening"
+            st.session_state.quiz_mode = "meaning"
 
         qm1, qm2 = st.columns(2)
         with qm1:
@@ -1770,7 +1779,7 @@ elif active_tab_choice == "🎯 Quiz":
 
         for k, v in [("quiz_question", None), ("quiz_options", None), ("quiz_answered", False),
                      ("quiz_selected", None), ("quiz_correct", None), ("quiz_score_correct", 0),
-                     ("quiz_score_total", 0)]:
+                     ("quiz_score_total", 0), ("quiz_audio_played", False), ("quiz_auto_advance_pending", False), ("quiz_auto_advance_at", None)]:
             if k not in st.session_state:
                 st.session_state[k] = v
 
@@ -1786,8 +1795,9 @@ elif active_tab_choice == "🎯 Quiz":
             st.session_state.quiz_answered = False
             st.session_state.quiz_selected = None
             st.session_state.quiz_correct = None
-            # reset per-question audio flag
             st.session_state.quiz_audio_played = False
+            st.session_state.quiz_auto_advance_pending = False
+            st.session_state.quiz_auto_advance_at = None
 
         if st.session_state.quiz_question is None:
             _new_quiz_question()
@@ -1796,6 +1806,11 @@ elif active_tab_choice == "🎯 Quiz":
         target_word = target[word_col] if word_col else target["word"]
         target_meaning = target.get(trans_th_col, target.get("trans_th", ""))
         target_level = target.get("hsk_level_label", target.get("hsk_level", ""))
+
+        if st.session_state.quiz_auto_advance_pending and st.session_state.get("quiz_auto_next", True):
+            if st.session_state.quiz_auto_advance_at is not None and time.time() >= st.session_state.quiz_auto_advance_at:
+                _new_quiz_question()
+                st.rerun()
 
         st.divider()
         sc1, sc2 = st.columns(2)
@@ -1818,10 +1833,6 @@ elif active_tab_choice == "🎯 Quiz":
             ]
         else:
             st.info(f"HSK {target_level} — กดฟังเสียงแล้วเลือกคำจีนที่ถูกต้อง")
-            # Play audio once per question; allow manual replay button
-            if "quiz_audio_played" not in st.session_state:
-                st.session_state.quiz_audio_played = False
-
             if st.button("🔊 ฟังเสียง", use_container_width=True, key="quiz_listen_btn"):
                 try:
                     audio_fp = speak_word(target_word)
@@ -1877,21 +1888,34 @@ elif active_tab_choice == "🎯 Quiz":
                     "ผู้เล่น": _current_player_name(),
                     "โหมด": "Quiz",
                 })
-                # auto-next behavior
-                if st.session_state.get('quiz_auto_next'):
-                    _new_quiz_question()
-                    st.rerun()
-                else:
-                    st.rerun()
+                st.session_state.quiz_auto_advance_pending = st.session_state.get("quiz_auto_next", True)
+                if st.session_state.quiz_auto_advance_pending:
+                    st.session_state.quiz_auto_advance_at = time.time() + 1.2
+                st.rerun()
 
         if st.session_state.quiz_answered:
             if st.session_state.quiz_correct:
                 st.success(f"✅ ถูกต้อง! {target_word} = {target_meaning}")
             else:
                 st.error(f"❌ ยังไม่ถูก — {target_word} แปลว่า {target_meaning}")
-            if st.button("➡️ ข้อถัดไป", use_container_width=True, key="quiz_next_btn"):
-                _new_quiz_question()
-                st.rerun()
+                st.markdown("**📋 เฉลยของทุกตัวเลือก:**")
+                for i, opt in enumerate(st.session_state.quiz_options):
+                    opt_word = opt[word_col] if word_col else opt["word"]
+                    opt_meaning = opt.get(trans_th_col, opt.get("trans_th", ""))
+                    is_target = (opt["id"] == target["id"])
+                    is_selected = (st.session_state.quiz_selected == opt["id"])
+                    mark = "✅" if is_target else ("❌" if is_selected else "▫️")
+                    st.markdown(f'<div class="example-box">{mark} <b>{opt_word}</b> = {opt_meaning}</div>', unsafe_allow_html=True)
+
+            if st.session_state.quiz_auto_advance_pending and st.session_state.get("quiz_auto_next", True):
+                st.caption("⏳ กำลังไปข้อถัดไปอัตโนมัติ...")
+                if st.button("⏭️ ข้ามการรอ / ข้อถัดไปทันที", use_container_width=True, key="quiz_skip_wait_btn"):
+                    _new_quiz_question()
+                    st.rerun()
+            else:
+                if st.button("➡️ ข้อถัดไป", use_container_width=True, key="quiz_next_btn"):
+                    _new_quiz_question()
+                    st.rerun()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2140,13 +2164,6 @@ elif active_tab_choice == "📖 คำศัพท์":
 # TAB 3: ประวัติ
 # ══════════════════════════════════════════════════════════════════════════════
 elif active_tab_choice == "📋 ประวัติ":
-    # ── 🏆 Leaderboard ────────────────────────────────────────────────────
-    # อันดับผู้เล่นตาม % ตอบถูก (ต้องตอบอย่างน้อย 1 ครั้งถึงจะขึ้น) — คะแนนนับ
-    # รวมทั้งจาก Flashcard (จำได้/จำไม่ได้) และ Quiz
-    #
-    # หมายเหตุ: players_data ถูกโหลดมาแค่ "ครั้งเดียว" ตอนเริ่ม session ถ้า
-    # คนอื่นเล่นแล้วเซฟคะแนนใหม่ระหว่างที่เรายังเปิดหน้านี้ค้างไว้ จะไม่เห็น
-    # อัตโนมัติ ต้องกดปุ่ม "🔄 รีเฟรช" ด้านล่างเพื่อดึงจาก Google Sheets ใหม่
     lb_col1, lb_col2 = st.columns([0.7, 0.3])
     with lb_col1:
         st.markdown("### 🏆 Leaderboard")
@@ -2157,58 +2174,77 @@ elif active_tab_choice == "📋 ประวัติ":
             st.session_state.srs_data = _fresh.get("srs", {})
             st.session_state.play_history = _fresh.get("history", [])
             st.rerun()
-    # allow switching leaderboard aggregation by mode
-    lb_mode = st.selectbox("แสดง Leaderboard ตามโหมด", ["ทั้งหมด", "Flashcard", "Quiz"], index=0, key="leaderboard_mode")
 
-    # Build per-mode leaderboard from play_history when requested
-    if lb_mode == "ทั้งหมด":
-        players = st.session_state.get("players_data", {})
-        if not players:
-            st.info("ยังไม่มีใครเล่นเลย — พิมพ์ชื่อใน sidebar แล้วเริ่มตอบคำถามได้เลย")
-        else:
-            rows = []
-            for name, p in players.items():
-                total = p.get("total", 0)
-                correct = p.get("correct", 0)
-                acc = round(correct / total * 100, 1) if total else 0.0
-                rows.append({
-                    "ผู้เล่น": name,
-                    "ตอบถูก": correct,
-                    "ตอบทั้งหมด": total,
-                    "ความแม่นยำ (%)": acc,
-                    "เล่นล่าสุด": p.get("last_active", "")[:19].replace("T", " ") if p.get("last_active") else "",
-                })
-            board_df = pd.DataFrame(rows).sort_values(
-                by=["ความแม่นยำ (%)", "ตอบถูก"], ascending=[False, False]
-            ).reset_index(drop=True)
+    def _build_board_from_players(players_dict):
+        rows = []
+        for name, p in players_dict.items():
+            total = p.get("total", 0)
+            correct = p.get("correct", 0)
+            acc = round(correct / total * 100, 1) if total else 0.0
+            rows.append({
+                "ผู้เล่น": name,
+                "ตอบถูก": correct,
+                "ตอบทั้งหมด": total,
+                "ความแม่นยำ (%)": acc,
+            })
+        if not rows:
+            return pd.DataFrame(columns=["อันดับ", "ผู้เล่น", "ตอบถูก", "ตอบทั้งหมด", "ความแม่นยำ (%)"])
+        b = pd.DataFrame(rows).sort_values(by=["ความแม่นยำ (%)", "ตอบถูก"], ascending=[False, False]).reset_index(drop=True)
+        b.insert(0, "อันดับ", [f"🥇" if i == 0 else f"🥈" if i == 1 else f"🥉" if i == 2 else str(i + 1) for i in range(len(b))])
+        return b
+
+    def _build_board_from_history(hist_list, mode):
+        if not hist_list:
+            return pd.DataFrame(columns=["อันดับ", "ผู้เล่น", "ตอบถูก", "ตอบทั้งหมด", "ความแม่นยำ (%)"])
+        df_hist = pd.DataFrame(hist_list)
+        if "โหมด" not in df_hist.columns:
+            return pd.DataFrame(columns=["อันดับ", "ผู้เล่น", "ตอบถูก", "ตอบทั้งหมด", "ความแม่นยำ (%)"])
+        df_mode = df_hist[df_hist["โหมด"] == mode]
+        if df_mode.empty or "ผู้เล่น" not in df_mode.columns:
+            return pd.DataFrame(columns=["อันดับ", "ผู้เล่น", "ตอบถูก", "ตอบทั้งหมด", "ความแม่นยำ (%)"])
+        agg = df_mode.groupby("ผู้เล่น").agg(
+            ตอบถูก=("ผล", lambda s: (s == "✅ จำได้").sum()),
+            ตอบทั้งหมด=("ผล", "count"),
+        ).reset_index()
+        if agg.empty:
+            return pd.DataFrame(columns=["อันดับ", "ผู้เล่น", "ตอบถูก", "ตอบทั้งหมด", "ความแม่นยำ (%)"])
+        agg["ความแม่นยำ (%)"] = (agg["ตอบถูก"] / agg["ตอบทั้งหมด"] * 100).round(1)
+        agg = agg.sort_values(by=["ความแม่นยำ (%)", "ตอบถูก"], ascending=[False, False]).reset_index(drop=True)
+        agg.insert(0, "อันดับ", [f"🥇" if i == 0 else f"🥈" if i == 1 else f"🥉" if i == 2 else str(i + 1) for i in range(len(agg))])
+        return agg
+
+    me = _current_player_name()
+    players = st.session_state.get("players_data", {})
+    board_all = _build_board_from_players(players)
+    if not board_all.empty:
+        board_all_display = board_all.copy()
+        board_all_display["ผู้เล่น"] = board_all_display["ผู้เล่น"].apply(lambda n: f"⭐ {n} (คุณ)" if n == me else n)
+        st.dataframe(board_all_display, use_container_width=True, hide_index=True)
     else:
-        # compute from history entries limited to chosen mode
-        hist = st.session_state.get("play_history", [])
-        mode = lb_mode
-        if not hist:
-            st.info("ยังไม่มีใครเล่นเลย")
-            board_df = pd.DataFrame(columns=["อันดับ", "ผู้เล่น", "ตอบถูก", "ตอบทั้งหมด", "ความแม่นยำ (%)", "เล่นล่าสุด"])
-        else:
-            df_hist = pd.DataFrame(hist)
-            df_mode = df_hist[df_hist.get("โหมด") == mode]
-            agg = df_mode.groupby("ผู้เล่น").agg(
-                ตอบถูก=("ผล", lambda s: (s == "✅ จำได้").sum()),
-                ตอบทั้งหมด=("ผล", "count"),
-                เล่นล่าสุด=("เวลา", "last")
-            ).reset_index()
-            if agg.empty:
-                board_df = pd.DataFrame(columns=["อันดับ", "ผู้เล่น", "ตอบถูก", "ตอบทั้งหมด", "ความแม่นยำ (%)", "เล่นล่าสุด"])
-            else:
-                agg["ความแม่นยำ (%)"] = (agg["ตอบถูก"] / agg["ตอบทั้งหมด"] * 100).round(1)
-                agg = agg.sort_values(by=["ความแม่นยำ (%)", "ตอบถูก"], ascending=[False, False]).reset_index(drop=True)
-                agg.insert(0, "อันดับ", [f"🥇" if i == 0 else f"🥈" if i == 1 else f"🥉" if i == 2 else str(i + 1) for i in range(len(agg))])
-                board_df = agg
+        st.info("ยังไม่มีใครเล่นเลย — พิมพ์ชื่อใน sidebar แล้วเริ่มตอบคำถามได้เลย")
 
-    if not board_df.empty:
-        me = _current_player_name()
-        if "ผู้เล่น" in board_df.columns:
-            board_df["ผู้เล่น"] = board_df["ผู้เล่น"].apply(lambda n: f"⭐ {n} (คุณ)" if n == me else n)
-        st.dataframe(board_df, use_container_width=True, hide_index=True)
+    st.divider()
+
+    hist = st.session_state.get("play_history", [])
+    lb_left, lb_right = st.columns(2)
+    with lb_left:
+        st.markdown("#### 🎴 Flashcard")
+        board_fc = _build_board_from_history(hist, "Flashcard")
+        if not board_fc.empty:
+            board_fc_display = board_fc.copy()
+            board_fc_display["ผู้เล่น"] = board_fc_display["ผู้เล่น"].apply(lambda n: f"⭐ {n}" if n == me else n)
+            st.dataframe(board_fc_display, use_container_width=True, hide_index=True)
+        else:
+            st.caption("ยังไม่มีข้อมูล Flashcard")
+    with lb_right:
+        st.markdown("#### 🎯 Quiz")
+        board_qz = _build_board_from_history(hist, "Quiz")
+        if not board_qz.empty:
+            board_qz_display = board_qz.copy()
+            board_qz_display["ผู้เล่น"] = board_qz_display["ผู้เล่น"].apply(lambda n: f"⭐ {n}" if n == me else n)
+            st.dataframe(board_qz_display, use_container_width=True, hide_index=True)
+        else:
+            st.caption("ยังไม่มีข้อมูล Quiz")
 
     st.divider()
 
