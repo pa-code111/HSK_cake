@@ -159,7 +159,9 @@ def _gsheet_upsert_row(ws, key, payload_obj, cache):
     แถวอื่นเลย) หรือ append แถวใหม่ท้ายชีทถ้ายังไม่เคยมี key นี้ `cache` คือ
     ผลลัพธ์จาก _gsheet_read_all() ที่อ่านมาครั้งเดียวตอนต้นของการเซฟ แล้ว
     reuse ระหว่างการ upsert หลายๆ key ในการเซฟรอบเดียวกัน"""
-    payload = json.dumps(payload_obj, ensure_ascii=False)
+    # default=str แก้บั๊ก "Object of type int64 is not JSON serializable" —
+    # id คำศัพท์ที่มาจาก pandas/numpy เป็น numpy.int64 ไม่ใช่ int ธรรมดา
+    payload = json.dumps(payload_obj, ensure_ascii=False, default=str)
     now = datetime.now().isoformat()
     existing = cache.get(key)
     if existing:
@@ -242,11 +244,41 @@ def _merge_history_for_player(existing_history, my_history, player_name):
     return merged
 
 
-def _save_progress():
+# ── หน่วงการซิงก์ Google Sheets (throttle) ──────────────────────────────────
+# เดิมทุกครั้งที่ตอบ 1 คำ (ทั้ง Flashcard และ Quiz) จะยิง Google Sheets API
+# ทันที 3 ครั้งรวด (อ่านทั้งชีท 1 ครั้ง + เขียน 2 ครั้ง) ทำให้รู้สึกหน่วง
+# ทุกครั้งที่กด "จำได้/จำไม่ได้" หรือตอบ quiz แถมกินโควตา/แบนด์วิดท์เยอะเกิน
+# จำเป็น — เปลี่ยนมาซิงก์ขึ้น Google Sheets เฉพาะทุกๆ N คำตอบ หรือทุกๆ M
+# วินาที (อันไหนถึงก่อน) แทน ส่วนไฟล์ในเครื่อง (local backup) ยังคงเขียน
+# "ทันทีทุกครั้ง" เหมือนเดิม (เร็ว ไม่มี network latency) จึงไม่มีความเสี่ยง
+# ข้อมูลหายระหว่างรอซิงก์ — ปรับตัวเลข 2 ค่านี้ได้ตามต้องการ
+_GSHEET_SYNC_EVERY_N_ANSWERS = 5
+_GSHEET_SYNC_EVERY_SECONDS = 20
+
+
+def _gsheet_sync_due():
+    """เช็ค + อัปเดตตัวนับว่าถึงเวลาซิงก์ขึ้น Google Sheets แล้วหรือยัง
+    (ทุก N คำตอบ หรือทุก M วินาที อันไหนถึงก่อน) คืน True เมื่อถึงเวลา"""
+    now = time.time()
+    pending = st.session_state.get("_gsheet_pending_count", 0) + 1
+    st.session_state["_gsheet_pending_count"] = pending
+    last_sync = st.session_state.get("_gsheet_last_sync_time", 0.0)
+    if pending >= _GSHEET_SYNC_EVERY_N_ANSWERS or (now - last_sync) >= _GSHEET_SYNC_EVERY_SECONDS:
+        st.session_state["_gsheet_pending_count"] = 0
+        st.session_state["_gsheet_last_sync_time"] = now
+        return True
+    return False
+
+
+def _save_progress(force_gsheet_sync=False):
     """บันทึกความคืบหน้า — เขียนเฉพาะ "แถวของตัวเอง" เท่านั้น (key
     "players:<ชื่อฉัน>" ที่เป็นของฉันคนเดียว) และ merge ประวัติเข้ากับของ
     เดิมที่มีอยู่แล้วก่อนเซฟเสมอ เพื่อไม่ให้เขียนทับ/ลบ SRS, สถิติ หรือ
-    ประวัติของผู้เล่นคนอื่นที่อาจกำลังเล่นพร้อมกันอยู่ หรือเคยเล่นไปแล้ว"""
+    ประวัติของผู้เล่นคนอื่นที่อาจกำลังเล่นพร้อมกันอยู่ หรือเคยเล่นไปแล้ว
+
+    ไฟล์ในเครื่องเขียนทุกครั้งที่เรียกฟังก์ชันนี้ (เร็ว ไม่ต้องรอ network)
+    ส่วนการซิงก์ขึ้น Google Sheets จะถูก "หน่วง" ตาม _gsheet_sync_due() เว้น
+    แต่ force_gsheet_sync=True (ใช้ตอนต้องการซิงก์ทันที เช่น ปุ่มล้างข้อมูล)"""
     name = _current_player_name()
     srs_all = st.session_state.get("srs_data", {})
     my_srs = srs_all.get(name, {})
@@ -255,26 +287,28 @@ def _save_progress():
 
     my_history_session = st.session_state.get("play_history", [])
 
-    ws = _get_gsheet_worksheet()
-    if ws is not None:
-        try:
-            cache = _gsheet_read_all(ws)
-            remote_history = cache["history"][1] if "history" in cache and isinstance(cache["history"][1], list) else []
-            merged_history = _merge_history_for_player(remote_history, my_history_session, name)
-            _gsheet_upsert_row(ws, "history", merged_history, cache)
-            _gsheet_upsert_row(ws, f"players:{name}", {
-                "srs": my_srs,
-                "correct": my_player.get("correct", 0),
-                "total": my_player.get("total", 0),
-                "last_active": my_player.get("last_active"),
-            }, cache)
-            st.session_state["_progress_backend"] = "gsheet"
-            st.session_state.play_history = merged_history
-        except Exception as e:
-            st.session_state["_gsheet_error"] = str(e)
+    if force_gsheet_sync or _gsheet_sync_due():
+        ws = _get_gsheet_worksheet()
+        if ws is not None:
+            try:
+                cache = _gsheet_read_all(ws)
+                remote_history = cache["history"][1] if "history" in cache and isinstance(cache["history"][1], list) else []
+                merged_history = _merge_history_for_player(remote_history, my_history_session, name)
+                _gsheet_upsert_row(ws, "history", merged_history, cache)
+                _gsheet_upsert_row(ws, f"players:{name}", {
+                    "srs": my_srs,
+                    "correct": my_player.get("correct", 0),
+                    "total": my_player.get("total", 0),
+                    "last_active": my_player.get("last_active"),
+                }, cache)
+                st.session_state["_progress_backend"] = "gsheet"
+                st.session_state.play_history = merged_history
+            except Exception as e:
+                st.session_state["_gsheet_error"] = str(e)
 
-    # เขียนไฟล์ในเครื่องไว้เป็น backup เสมอ (เร็ว ไม่มี network latency ด้วย)
-    # merge กับของเดิมในไฟล์ก่อนเสมอ (อ่าน -> แทนที่เฉพาะของฉัน -> เขียนกลับ)
+    # เขียนไฟล์ในเครื่องไว้เป็น backup เสมอทุกครั้ง (เร็ว ไม่มี network
+    # latency ด้วย ไม่ได้ถูก throttle เหมือน Google Sheets ด้านบน) merge
+    # กับของเดิมในไฟล์ก่อนเสมอ (อ่าน -> แทนที่เฉพาะของฉัน -> เขียนกลับ)
     # แทนที่จะเขียนทับด้วยข้อมูลใน session ล้วนๆ ซึ่งอาจไม่มีของคนอื่นเลย
     try:
         try:
@@ -304,12 +338,19 @@ def _save_progress():
             "forgotten": st.session_state.get("forgotten", []),
             "players": merged_players,
         }
+        # หมายเหตุ: "default=str" คือตัวแก้บั๊ก "Object of type int64 is not
+        # JSON serializable" — id ของคำศัพท์ที่มาจาก pandas DataFrame เป็น
+        # numpy.int64 ไม่ใช่ int ธรรมดาของ Python ทำให้ json.dump()/json.dumps()
+        # โยน error ตรงนี้มาตลอด (เดิมโค้ดมี try/except ครอบไว้เงียบๆ จึงดู
+        # เหมือนเซฟสำเร็จ แต่จริงๆ ไฟล์ในเครื่องไม่ได้ถูกเขียนเลยทุกครั้งที่
+        # เจอ error นี้) การใส่ default=str บอก json ให้แปลงชนิดข้อมูลแปลกๆ
+        # ที่ไม่รู้จัก (int64, datetime ฯลฯ) เป็น string แทนการ error ทิ้ง
         with open(PROGRESS_FILE, "w", encoding="utf-8") as f:
-            json.dump(local_data, f, ensure_ascii=False)
+            json.dump(local_data, f, ensure_ascii=False, default=str)
         st.session_state.srs_data = merged_srs
         st.session_state.players_data = merged_players
-    except Exception:
-        pass
+    except Exception as e:
+        st.session_state["_local_save_error"] = str(e)
 
 
 def _current_player_name():
@@ -986,33 +1027,48 @@ if df.empty:
     st.error("ไฟล์ CSV ว่างเปล่า")
     st.stop()
 
-# ─── HSK level handling ───────────────────────────────────────────────────
-# Some rows have a "1(2)"-style raw value: the word's PRIMARY level is 1,
-# but it also appears in level 2 (and possibly more, e.g. "1(2)(4)").
-# We keep the original raw string ("hsk_level_raw") for display,
-# normalize "hsk_level" to the primary level only (used for
-# filtering/grouping/coloring), and build a friendly display label
-# ("hsk_level_label", e.g. "1 (2)") plus the bare "extra" suffix
-# ("hsk_level_extra", e.g. "(2)") for badges/tooltips.
-df['hsk_level_raw'] = df['hsk_level'].astype(str)
-_split = df['hsk_level_raw'].apply(split_level_label)
-df['hsk_level'] = _split.apply(lambda t: t[0])          # primary level only, e.g. "1"
-df['hsk_level_extra'] = _split.apply(lambda t: t[1])     # e.g. "(2)" or ""
-df['hsk_level_label'] = _split.apply(lambda t: t[2])     # e.g. "1 (2)"
+# ─── HSK level handling (cached — สำคัญมากต่อความไว) ───────────────────────
+# เดิมโค้ดส่วนนี้ (แยกระดับ HSK + คำนวณ pinyin แบบไม่มีวรรณยุกต์) รันแบบ
+# .apply() ทีละแถวบน DataFrame ทั้งตาราง "ทุกครั้งที่มี rerun" — ซึ่งรวมถึง
+# ทุกครั้งที่แค่พลิกการ์ด flashcard หรือกดตอบ quiz ด้วย (เพราะ Streamlit
+# rerun สคริปต์ทั้งไฟล์ใหม่ทุกครั้งที่มี interaction) ทำให้ทุกการคลิกต้อง
+# เสียเวลาคำนวณคอลัมน์เหล่านี้ซ้ำโดยไม่จำเป็น ทั้งที่ข้อมูลคำศัพท์ไม่ได้
+# เปลี่ยนเลย — ครอบด้วย @st.cache_data ให้คำนวณครั้งเดียวแล้วเก็บผลไว้ใช้
+# ซ้ำ (คำนวณใหม่ก็ต่อเมื่อตัว df เปลี่ยนจริงๆ เช่น อัปโหลดไฟล์ใหม่) ช่วยลด
+# ความหน่วงที่รู้สึกได้ทุกครั้งที่พลิกการ์ด/ตอบคำถามลงไปมาก
+@st.cache_data(show_spinner=False)
+def _prepare_vocab_df(df_in):
+    df_in = df_in.copy()
+    # Some rows have a "1(2)"-style raw value: the word's PRIMARY level is 1,
+    # but it also appears in level 2 (and possibly more, e.g. "1(2)(4)").
+    # We keep the original raw string ("hsk_level_raw") for display,
+    # normalize "hsk_level" to the primary level only (used for
+    # filtering/grouping/coloring), and build a friendly display label
+    # ("hsk_level_label", e.g. "1 (2)") plus the bare "extra" suffix
+    # ("hsk_level_extra", e.g. "(2)") for badges/tooltips.
+    df_in['hsk_level_raw'] = df_in['hsk_level'].astype(str)
+    _split = df_in['hsk_level_raw'].apply(split_level_label)
+    df_in['hsk_level'] = _split.apply(lambda t: t[0])          # primary level only, e.g. "1"
+    df_in['hsk_level_extra'] = _split.apply(lambda t: t[1])     # e.g. "(2)" or ""
+    df_in['hsk_level_label'] = _split.apply(lambda t: t[2])     # e.g. "1 (2)"
 
-# Pre-compute toneless pinyin once. Both the sidebar search and the tab2
-# search do fuzzy (tone-insensitive) pinyin matching on every keystroke
-# rerun; computing this column once here avoids re-running strip_tones()
-# over every row on every rerun.
-_pinyin_col_for_precompute = None
-for _candidate in ("pinyin",):
-    if _candidate in df.columns:
-        _pinyin_col_for_precompute = _candidate
-        break
-if _pinyin_col_for_precompute:
-    df['_pinyin_toneless'] = df[_pinyin_col_for_precompute].apply(strip_tones)
-else:
-    df['_pinyin_toneless'] = ""
+    # Pre-compute toneless pinyin once. Both the sidebar search and the tab2
+    # search do fuzzy (tone-insensitive) pinyin matching on every keystroke
+    # rerun; computing this column once here avoids re-running strip_tones()
+    # over every row on every rerun.
+    _pinyin_col_for_precompute = None
+    for _candidate in ("pinyin",):
+        if _candidate in df_in.columns:
+            _pinyin_col_for_precompute = _candidate
+            break
+    if _pinyin_col_for_precompute:
+        df_in['_pinyin_toneless'] = df_in[_pinyin_col_for_precompute].apply(strip_tones)
+    else:
+        df_in['_pinyin_toneless'] = ""
+    return df_in
+
+
+df = _prepare_vocab_df(df)
 
 # ─── Initialize column mapping ────────────────────────────────────────────────
 # ตรวจจับว่าคอลัมน์ของไฟล์ปัจจุบันเปลี่ยนไปจากครั้งก่อนหรือไม่ (เช่น ผู้ใช้
@@ -1388,7 +1444,7 @@ else:
             st.session_state.remembered = [r for r in st.session_state.remembered if r.get('ผู้เล่น') != name]
             st.session_state.forgotten = [f for f in st.session_state.forgotten if f.get('ผู้เล่น') != name]
             st.session_state.players_data.pop(name, None)
-            _save_progress()
+            _save_progress(force_gsheet_sync=True)
             st.session_state.confirm_reset_progress = False
             st.rerun()
     with rc2:
