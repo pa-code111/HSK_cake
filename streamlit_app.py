@@ -12,6 +12,8 @@ import random
 import time
 import tempfile
 import hashlib
+import base64
+import streamlit.components.v1 as components
 from datetime import datetime, timedelta
 from functools import lru_cache
 
@@ -450,6 +452,39 @@ def speak_word(text):
     return io.BytesIO(speak_word_bytes(text))
 
 
+# ✅ NEW: เล่นเสียงผ่าน <audio> element ตัวเดียวที่ฝังอยู่บนหน้าเว็บหลัก (window.parent.document)
+# แทนการสร้าง element ใหม่ทุกครั้งแบบ st.audio() — เพราะเบราว์เซอร์ (โดยเฉพาะมือถือ/Safari)
+# จะบล็อก autoplay ของ element ใหม่ที่ไม่ได้เกิดจากการคลิกของผู้ใช้โดยตรง (เช่น หลัง st.rerun()
+# หรือ auto-advance ผ่าน st_autorefresh) แต่จะยังคง "เล่นต่อ" บน element เดิมที่เคยเล่นสำเร็จ
+# จากการคลิกของผู้ใช้มาก่อนได้ แม้จะสั่งจาก JS/timer ในภายหลัง
+def play_audio_autoplay(audio_bytes, elem_id="hsk_persistent_audio"):
+    b64 = base64.b64encode(audio_bytes).decode()
+    html = f"""
+    <script>
+    (function() {{
+        try {{
+            var pdoc = window.parent.document;
+            var audio = pdoc.getElementById('{elem_id}');
+            if (!audio) {{
+                audio = pdoc.createElement('audio');
+                audio.id = '{elem_id}';
+                audio.style.display = 'none';
+                pdoc.body.appendChild(audio);
+            }}
+            audio.src = "data:audio/mp3;base64,{b64}";
+            var p = audio.play();
+            if (p !== undefined) {{
+                p.catch(function(e) {{ console.log('autoplay blocked:', e); }});
+            }}
+        }} catch (e) {{
+            console.log('audio inject error', e);
+        }}
+    }})();
+    </script>
+    """
+    components.html(html, height=0, width=0)
+
+
 def normalize_level(level):
     s = str(level).strip()
     primary = s.split("(")[0].strip()
@@ -569,8 +604,9 @@ st.markdown("""
     color:white;
     transform:rotateY(180deg);
     flex-direction:column;
-    justify-content:space-around;
+    justify-content:flex-start;
     z-index:1;
+    overflow: hidden;
 }
 .pinyin-text { font-size:36px; margin-bottom:12px; font-weight:700; }
 .meaning-text { font-size:28px; font-weight:600; }
@@ -586,6 +622,32 @@ st.markdown("""
     border:1px solid rgba(255,255,255,0.25);
     border-radius:10px;
     padding:6px 10px;
+}
+.example-scroll-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    margin-top: 8px;
+}
+.example-scroll-inner {
+    height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-bottom: 4px;
+}
+.example-scroll-wrap::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 22px;
+    pointer-events: none;
+    border-radius: 0 0 24px 24px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.28) 100%);
 }
 .click-hint { position:absolute; bottom:18px; left:0; right:0; text-align:center; font-size:13px; opacity:0.75; font-weight:500; }
 .hsk-badge { position:absolute; top:14px; padding:6px 14px; border-radius:22px; font-size:11px; font-weight:800; color:white; background:rgba(0,0,0,0.25); z-index:10; letter-spacing:0.5px; }
@@ -1362,7 +1424,9 @@ if active_tab_choice == "🎴 Flashcard":
                 <div class="pinyin-text">{st.session_state.current_word.get(pinyin_col, st.session_state.current_word.get('pinyin',''))}</div>
                 <div class="meaning-text">{st.session_state.current_word.get(trans_th_col, st.session_state.current_word.get('trans_th',''))}</div>
             </div>
-            <div style="width:100%; margin-top:8px; display:flex; flex-direction:column; gap:4px; overflow-y:auto; max-height:150px;">{example_html}</div>
+            <div class="example-scroll-wrap">
+                <div class="example-scroll-inner">{example_html}</div>
+            </div>
         </div>
     </div>
 </div>
@@ -1607,19 +1671,19 @@ elif active_tab_choice == "🎯 Quiz":
                 str(opt.get(trans_th_col, opt.get("trans_th", ""))) for opt in st.session_state.quiz_options
             ]
         else:
-            st.info(f"HSK {target_level} — กดฟังเสียงแล้วเลือกคำจีนที่ถูกต้อง")
-            if st.button("🔊 ฟังเสียง", use_container_width=True, key="quiz_listen_btn"):
+            st.info(f"HSK {target_level} — เสียงจะเล่นให้อัตโนมัติ กดปุ่มด้านล่างถ้าอยากฟังซ้ำ")
+            if st.button("🔊 ฟังเสียงซ้ำ", use_container_width=True, key="quiz_listen_btn"):
                 try:
-                    audio_fp = speak_word(target_word)
-                    st.audio(audio_fp.getvalue(), format="audio/mp3", autoplay=True)
+                    audio_bytes = speak_word_bytes(target_word)
+                    play_audio_autoplay(audio_bytes)
                     st.session_state.quiz_audio_played = True
                 except Exception as e:
                     st.warning(f"ไม่สามารถเล่นเสียงได้: {e}")
 
             if not st.session_state.quiz_answered and not st.session_state.quiz_audio_played:
                 try:
-                    audio_fp = speak_word(target_word)
-                    st.audio(audio_fp.getvalue(), format="audio/mp3", autoplay=True)
+                    audio_bytes = speak_word_bytes(target_word)
+                    play_audio_autoplay(audio_bytes)
                     st.session_state.quiz_audio_played = True
                 except Exception as e:
                     st.warning(f"ไม่สามารถเล่นเสียงอัตโนมัติได้: {e}")
