@@ -14,6 +14,11 @@ import tempfile
 from datetime import datetime, timedelta
 from functools import lru_cache
 
+try:
+    from streamlit_autorefresh import st_autorefresh
+except ImportError:
+    st_autorefresh = None
+
 st.set_page_config(
     page_title="HSK Flashcard AI",
     page_icon="🇨🇳",
@@ -1323,11 +1328,22 @@ if st.sidebar.button(ai_label, use_container_width=True, key="ai_sidebar_btn"):
     st.session_state.ai_panel_open = not st.session_state.ai_panel_open
     st.rerun()
 
-# Quiz preferences
+# ── Quiz preferences ────────────────────────────────────────────────────────
+# เดิมหน่วงเวลาคงที่ 1.2 วิ ตอนนี้ให้ผู้ใช้เลือกจำนวนวินาทีเองได้เลย
+# (ไม่มีตัวนับถอยหลังบนหน้าจอ ตามที่ผู้ใช้ขอ — แค่รอเงียบๆ ตามเวลาที่ตั้งไว้
+# แล้วเด้งไปข้อถัดไปเอง)
 if "quiz_auto_next" not in st.session_state:
     st.session_state.quiz_auto_next = True
-# Create the checkbox; Streamlit will set `st.session_state['quiz_auto_next']` automatically.
 st.sidebar.checkbox("เลื่อนไปข้อถัดไปอัตโนมัติเมื่อตอบ", value=st.session_state.get("quiz_auto_next", True), key="quiz_auto_next")
+
+if st.session_state.quiz_auto_next:
+    if "quiz_auto_next_seconds" not in st.session_state:
+        st.session_state.quiz_auto_next_seconds = 2
+    st.sidebar.number_input(
+        "⏱️ หน่วงกี่วินาทีก่อนไปข้อถัดไป",
+        min_value=1, max_value=60, step=1,
+        key="quiz_auto_next_seconds",
+    )
 
 # ── สรุปคำที่ถึงกำหนดทบทวนวันนี้ (SRS) + ปุ่มล้างความคืบหน้า ──────────────
 _backend = st.session_state.get("_progress_backend", "local")
@@ -1592,6 +1608,15 @@ body {{ background:transparent; }}
 </style>
 </head>
 <body>
+    <script>
+    // สำคัญมาก: ต้องบอก Streamlit parent ว่า component นี้ "พร้อมใช้งาน" แล้ว
+    // (handshake ตามมาตรฐาน Streamlit Components) — ถ้าไม่ส่งอันนี้ ตัว
+    // parent จะไม่รับค่าที่ postMessage("streamlit:setComponentValue")
+    // ส่งกลับมาจากการคลิกการ์ดเลย ทำให้พลิกการ์ดได้ (เพราะเป็น CSS/JS ฝั่ง
+    // browser ล้วนๆ) แต่ Python/session_state ไม่รู้เรื่อง เฉลยฝั่งขวาจึง
+    // ไม่ตามการพลิก ต้องกดปุ่ม fallback แทน — เติมบรรทัดนี้แก้ได้ตรงจุด
+    window.parent.postMessage({{type: "streamlit:componentReady", apiVersion: 1}}, "*");
+    </script>
     <div class="flip-card {flipped_class}" id="card-{flip_gen}" onclick="
     this.classList.toggle('flipped');
     var flipped = this.classList.contains('flipped');
@@ -1850,6 +1875,8 @@ elif active_tab_choice == "🎯 Quiz":
         target_meaning = target.get(trans_th_col, target.get("trans_th", ""))
         target_level = target.get("hsk_level_label", target.get("hsk_level", ""))
 
+        # ── auto-advance check (ทำงานเงียบๆ ไม่มี countdown แต่ยังต้อง
+        # refresh หน้าเป็นระยะเพื่อให้ Streamlit เช็คเวลาแม้ผู้ใช้ไม่คลิกอะไร)
         if st.session_state.quiz_auto_advance_pending and st.session_state.get("quiz_auto_next", True):
             if st.session_state.quiz_auto_advance_at is not None and time.time() >= st.session_state.quiz_auto_advance_at:
                 _new_quiz_question()
@@ -1933,7 +1960,9 @@ elif active_tab_choice == "🎯 Quiz":
                 })
                 st.session_state.quiz_auto_advance_pending = st.session_state.get("quiz_auto_next", True)
                 if st.session_state.quiz_auto_advance_pending:
-                    st.session_state.quiz_auto_advance_at = time.time() + 1.2
+                    # ใช้จำนวนวินาทีที่ตั้งไว้ใน sidebar (ค่าเริ่มต้น 2 วิ)
+                    # แทนค่าคงที่ 1.2 วิเดิม
+                    st.session_state.quiz_auto_advance_at = time.time() + st.session_state.get("quiz_auto_next_seconds", 2)
                 st.rerun()
 
         if st.session_state.quiz_answered:
@@ -1951,7 +1980,12 @@ elif active_tab_choice == "🎯 Quiz":
                     st.markdown(f'<div class="example-box">{mark} <b>{opt_word}</b> = {opt_meaning}</div>', unsafe_allow_html=True)
 
             if st.session_state.quiz_auto_advance_pending and st.session_state.get("quiz_auto_next", True):
+                # ไม่มีตัวนับถอยหลังบนหน้าจอ — รอเงียบๆ ตามวินาทีที่ตั้งไว้
+                # (st_autorefresh ใช้แค่ "กระตุ้น" ให้ Streamlit เช็คเวลาเป็น
+                # ระยะ ไม่ได้เอามาแสดงเป็นตัวเลขนับถอยหลังแต่อย่างใด)
                 st.caption("⏳ กำลังไปข้อถัดไปอัตโนมัติ...")
+                if st_autorefresh is not None:
+                    st_autorefresh(interval=300, key="quiz_wait_tick")
                 if st.button("⏭️ ข้ามการรอ / ข้อถัดไปทันที", use_container_width=True, key="quiz_skip_wait_btn"):
                     _new_quiz_question()
                     st.rerun()
