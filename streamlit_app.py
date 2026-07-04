@@ -674,6 +674,7 @@ st.markdown("""
 .flip-card-front {
     color:white;
     z-index:2;
+    flex-direction:column;
 }
 .flip-card-back {
     color:white;
@@ -684,7 +685,9 @@ st.markdown("""
 }
 .pinyin-text { font-size:36px; margin-bottom:12px; font-weight:700; }
 .meaning-text { font-size:28px; font-weight:600; }
-.click-hint { font-size:13px; opacity:0.75; margin-top:12px; font-weight:500; }
+.word-frame { border:2px solid rgba(255,255,255,0.45); border-radius:16px; padding:12px 18px; background:rgba(255,255,255,0.08); }
+.ex-line { font-size:15px; font-weight:500; line-height:1.35; margin:2px 0; opacity:0.95; text-align:center; }
+.click-hint { position:absolute; bottom:18px; left:0; right:0; text-align:center; font-size:13px; opacity:0.75; font-weight:500; }
 .hsk-badge { position:absolute; top:14px; padding:6px 14px; border-radius:22px; font-size:11px; font-weight:800; color:white; background:rgba(0,0,0,0.25); z-index:10; letter-spacing:0.5px; }
 .id-badge { position:absolute; top:14px; padding:6px 14px; border-radius:22px; font-size:11px; font-weight:800; font-family:monospace; color:white; background:rgba(0,0,0,0.25); z-index:10; }
 .flip-card-front .id-badge { left:14px; }
@@ -1606,9 +1609,11 @@ if active_tab_choice == "🎴 Flashcard":
         <div class="flip-card-back" style="background:linear-gradient({colors['gradient']});">
             <div class="id-badge">#{st.session_state.current_word.get('id','')}</div>
             <div class="hsk-badge">HSK {current_hsk_label}</div>
-            <div class="pinyin-text">{st.session_state.current_word.get(pinyin_col, st.session_state.current_word.get('pinyin',''))}</div>
-            <div class="meaning-text">{st.session_state.current_word.get(trans_th_col, st.session_state.current_word.get('trans_th',''))}</div>
-            <div style="width:100%; margin-top:8px; display:flex; flex-direction:column; gap:4px; overflow-y:auto; max-height:140px;">{example_html}</div>
+            <div class="word-frame">
+                <div class="pinyin-text">{st.session_state.current_word.get(pinyin_col, st.session_state.current_word.get('pinyin',''))}</div>
+                <div class="meaning-text">{st.session_state.current_word.get(trans_th_col, st.session_state.current_word.get('trans_th',''))}</div>
+            </div>
+            <div style="width:100%; margin-top:8px; display:flex; flex-direction:column; gap:4px; overflow-y:auto; max-height:150px;">{example_html}</div>
         </div>
     </div>
 </div>
@@ -1823,8 +1828,14 @@ elif active_tab_choice == "🎯 Quiz":
             if k not in st.session_state:
                 st.session_state[k] = v
 
-        def _new_quiz_question():
-            target = pick_srs_word(filtered_df)
+        def _new_quiz_question(exclude_id=None):
+            # ส่ง exclude_id = คำที่เพิ่งตอบไป กัน SRS เลือกคำเดิมซ้ำทันที —
+            # เดิมไม่ได้ส่ง exclude_id เลย พอตอบผิด กล่องความจำ (box) ของคำ
+            # นั้นจะรีเซ็ตเป็น box ต่ำสุด + ครบกำหนดทบทวน "ทันที" ทำให้มันมี
+            # โอกาสสูงมากที่จะถูกสุ่มเลือกเป็นคำถัดไปอีกครั้ง ดูเหมือนกดตอบ
+            # ผิดแล้ว "ค้าง" อยู่คำเดิมไม่ยอมเปลี่ยน ทั้งที่จริงๆ ระบบสุ่มใหม่
+            # ทุกครั้ง แค่มันมักสุ่มโดนคำเดิมซ้ำเพราะเป็น box ต่ำสุดพอดี
+            target = pick_srs_word(filtered_df, exclude_id=exclude_id)
             distractor_pool = filtered_df[filtered_df["id"] != target["id"]]
             n_distractors = min(3, len(distractor_pool))
             distractors = distractor_pool.sample(n_distractors)
@@ -1851,7 +1862,7 @@ elif active_tab_choice == "🎯 Quiz":
         # refresh หน้าเป็นระยะเพื่อให้ Streamlit เช็คเวลาแม้ผู้ใช้ไม่คลิกอะไร)
         if st.session_state.quiz_auto_advance_pending and st.session_state.get("quiz_auto_next", True):
             if st.session_state.quiz_auto_advance_at is not None and time.time() >= st.session_state.quiz_auto_advance_at:
-                _new_quiz_question()
+                _new_quiz_question(exclude_id=target.get("id"))
                 st.rerun()
 
         st.divider()
@@ -1959,11 +1970,11 @@ elif active_tab_choice == "🎯 Quiz":
                 if st_autorefresh is not None:
                     st_autorefresh(interval=300, key="quiz_wait_tick")
                 if st.button("⏭️ ข้ามการรอ / ข้อถัดไปทันที", use_container_width=True, key="quiz_skip_wait_btn"):
-                    _new_quiz_question()
+                    _new_quiz_question(exclude_id=target.get("id"))
                     st.rerun()
             else:
                 if st.button("➡️ ข้อถัดไป", use_container_width=True, key="quiz_next_btn"):
-                    _new_quiz_question()
+                    _new_quiz_question(exclude_id=target.get("id"))
                     st.rerun()
 
 
