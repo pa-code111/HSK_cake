@@ -1517,161 +1517,77 @@ if active_tab_choice == "🎴 Flashcard":
             example_lines = get_examples_html(st.session_state.current_word)
             example_html = "".join(f'<div class="ex-line">{line}</div>' for line in example_lines)
 
-            import streamlit.components.v1 as components
-            _flip_result = components.html(f"""
-<!DOCTYPE html>
-<html>
-<head>
-<style>
-* {{ margin:0; padding:0; box-sizing:border-box; }}
-body {{ background:transparent; }}
-.flip-card {{
-    background-color:transparent;
-    width:100%;
-    height:380px;
-    perspective:1200px;
-    cursor:pointer;
-    user-select:none;
-}}
-.flip-card-inner {{
-    position:relative;
-    width:100%;
-    height:100%;
-    text-align:center;
-    transition:transform 0.65s cubic-bezier(0.68,-0.55,0.265,1.55);
-    transform-style:preserve-3d;
-}}
-.flip-card.flipped .flip-card-inner {{
-    transform:rotateY(180deg);
-}}
-.flip-card-front, .flip-card-back {{
-    position:absolute;
-    width:100%;
-    height:100%;
-    backface-visibility:hidden;
-    -webkit-backface-visibility:hidden;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-weight:bold;
-    border-radius:24px;
-    box-shadow:0 10px 40px rgba(0,0,0,0.3);
-    padding:20px;
-}}
-.flip-card-front {{
-    background:linear-gradient({colors['gradient']});
-    color:white;
-    font-size:56px;
-    z-index:2;
-    flex-direction:column;
-}}
-.flip-card-back {{
-    background:linear-gradient({colors['gradient']});
-    color:white;
-    transform:rotateY(180deg);
-    flex-direction:column;
-    justify-content:space-around;
-    z-index:1;
-    overflow-y:auto;
-}}
-.badge {{
-    position:absolute;
-    top:14px;
-    padding:6px 14px;
-    border-radius:22px;
-    font-size:11px;
-    font-weight:800;
-    color:white;
-    background:rgba(0,0,0,0.25);
-    letter-spacing:0.5px;
-}}
-.id-b {{ left:14px; font-family:monospace; }}
-.hsk-b {{ right:14px; }}
-.pinyin {{ font-size:34px; font-weight:700; margin-bottom:8px; }}
-.meaning {{ font-size:26px; font-weight:600; margin-bottom:8px; }}
-.hint {{ font-size:13px; opacity:0.75; margin-top:10px; font-weight:500; }}
-.examples {{
-    width:100%;
-    margin-top:6px;
-    display:flex;
-    flex-direction:column;
-    gap:4px;
-}}
-.ex-line {{
-    font-size:14px;
-    font-weight:500;
-    background:rgba(0,0,0,0.18);
-    border-radius:10px;
-    padding:6px 10px;
-    line-height:1.4;
-}}
-</style>
-</head>
-<body>
-    <script>
-    // สำคัญมาก: ต้องบอก Streamlit parent ว่า component นี้ "พร้อมใช้งาน" แล้ว
-    // (handshake ตามมาตรฐาน Streamlit Components) — ถ้าไม่ส่งอันนี้ ตัว
-    // parent จะไม่รับค่าที่ postMessage("streamlit:setComponentValue")
-    // ส่งกลับมาจากการคลิกการ์ดเลย ทำให้พลิกการ์ดได้ (เพราะเป็น CSS/JS ฝั่ง
-    // browser ล้วนๆ) แต่ Python/session_state ไม่รู้เรื่อง เฉลยฝั่งขวาจึง
-    // ไม่ตามการพลิก ต้องกดปุ่ม fallback แทน — เติมบรรทัดนี้แก้ได้ตรงจุด
-    window.parent.postMessage({{type: "streamlit:componentReady", apiVersion: 1}}, "*");
-    </script>
-    <div class="flip-card {flipped_class}" id="card-{flip_gen}" onclick="
-    this.classList.toggle('flipped');
-    var flipped = this.classList.contains('flipped');
-    var gen = {flip_gen};
-    window.parent.postMessage({{type: 'streamlit:setComponentValue', value: {{'flipped': flipped, 'gen': gen}}}}, '*');
-">
+            # ── การ์ด flashcard: เรนเดอร์ด้วย st.markdown (ไม่ใช้ iframe) ──────
+            # เหตุผลที่เปลี่ยนจาก components.html() มาเป็น st.markdown():
+            # st.components.v1.html() เป็น "iframe ทางเดียว" เท่านั้น — แสดง
+            # HTML/JS ได้ แต่ไม่มีช่องทางส่งค่ากลับเข้า Python เลย ต่อให้ยิง
+            # postMessage("streamlit:setComponentValue") จาก JS ไปเท่าไหร่ก็
+            # ตาม Streamlit ฝั่ง frontend จะไม่รับ เพราะ iframe จาก
+            # components.html() ไม่ได้ลงทะเบียนเป็น "component instance" ใน
+            # ระบบสื่อสารสองทาง (มีแต่ custom component ที่สร้างผ่าน
+            # components.declare_component() เท่านั้นที่ทำแบบนั้นได้จริง) —
+            # นี่คือสาเหตุตัวจริงที่การ์ดพลิกได้แต่เฉลยไม่ตาม ไม่ว่าจะเติม
+            # componentReady handshake ยังไงก็ไม่มีทางสำเร็จ
+            #
+            # ทางแก้ที่ทำงานได้จริงแบบ native Streamlit (ไม่ต้อง build
+            # custom component เอง): แสดงการ์ดด้วย st.markdown ธรรมดา (ใช้
+            # CSS class .flip-card ที่ประกาศไว้ใน <style> ระดับหน้าเว็บด้าน
+            # บนอยู่แล้ว) แล้ววางปุ่ม st.button() ที่โปร่งใส 100% (opacity:0)
+            # ซ้อนทับตำแหน่งเดียวกับการ์ดพอดีด้วย CSS (margin-top ติดลบเท่า
+            # ความสูงการ์ด) ผู้ใช้จะรู้สึกเหมือน "แตะที่การ์ด" แต่จริงๆ คือ
+            # กดปุ่ม Streamlit ปกติ ซึ่ง sync กับ session_state ได้ 100%
+            # เพราะเป็น native widget ไม่ใช่ iframe
+            _CARD_HEIGHT = 380
+            card_html = f"""
+<div class="flip-card {flipped_class}" style="height:{_CARD_HEIGHT}px;">
     <div class="flip-card-inner">
-        <div class="flip-card-front">
-            <div class="badge id-b">#{st.session_state.current_word.get('id','')}</div>
-            <div class="badge hsk-b">HSK {current_hsk_label}</div>
+        <div class="flip-card-front" style="background:linear-gradient({colors['gradient']}); font-size:48px;">
+            <div class="id-badge">#{st.session_state.current_word.get('id','')}</div>
+            <div class="hsk-badge">HSK {current_hsk_label}</div>
             <div>{current_word_text}</div>
-            <div class="hint">แตะเพื่อเปิด</div>
+            <div class="click-hint">แตะเพื่อเปิด</div>
         </div>
-        <div class="flip-card-back">
-            <div class="badge id-b">#{st.session_state.current_word.get('id','')}</div>
-            <div class="badge hsk-b">HSK {current_hsk_label}</div>
-            <div class="pinyin">{st.session_state.current_word.get(pinyin_col, st.session_state.current_word.get('pinyin',''))}</div>
-            <div class="meaning">{st.session_state.current_word.get(trans_th_col, st.session_state.current_word.get('trans_th',''))}</div>
-            <div class="examples">{example_html}</div>
+        <div class="flip-card-back" style="background:linear-gradient({colors['gradient']});">
+            <div class="id-badge">#{st.session_state.current_word.get('id','')}</div>
+            <div class="hsk-badge">HSK {current_hsk_label}</div>
+            <div class="pinyin-text">{st.session_state.current_word.get(pinyin_col, st.session_state.current_word.get('pinyin',''))}</div>
+            <div class="meaning-text">{st.session_state.current_word.get(trans_th_col, st.session_state.current_word.get('trans_th',''))}</div>
+            <div style="width:100%; margin-top:8px; display:flex; flex-direction:column; gap:4px; overflow-y:auto; max-height:140px;">{example_html}</div>
         </div>
     </div>
 </div>
-</body>
-</html>
-""", height=400, scrolling=False)
+"""
+            st.markdown(card_html, unsafe_allow_html=True)
 
-            # ── sync การพลิกการ์ด (JS) กลับเข้า Python session_state ──────────
-            # ตัวการ์ดพลิกได้ฝั่ง browser (CSS/JS) แล้วส่งค่ากลับมาที่
-            # session_state.card_flipped ผ่าน postMessage(setComponentValue)
-            #
-            # หมายเหตุสำคัญ: components.html() ไม่รับพารามิเตอร์ key (ใส่แล้ว
-            # จะ error TypeError) ดังนั้น "การ์ดตัวเดิม" ในตำแหน่งโค้ดเดิมจะ
-            # ยังเก็บค่าที่ postMessage ส่งมาค้างข้าม rerun ได้ (ไม่ผูกกับคำ
-            # ปัจจุบัน) — เพื่อกันไม่ให้ค่าที่ค้างจากคำ/เจนเนอเรชันก่อนหน้าไป
-            # ทำให้การ์ดคำใหม่ "เริ่มที่หน้าหลัง (เฉลย)" โดยไม่ตั้งใจ เราจะ
-            # ยอมรับค่าที่ส่งกลับมาก็ต่อเมื่อ "gen" ที่แนบมาตรงกับ
-            # flip_generation ปัจจุบันเท่านั้น (ไม่มี fallback แบบไม่เช็ค gen
-            # อีกต่อไป เพราะนั่นคือจุดที่ทำให้ค่าเก่าหลุดมาปนคำใหม่ได้)
-            if isinstance(_flip_result, dict):
-                val = bool(_flip_result.get('flipped'))
-                try:
-                    gen = int(_flip_result.get('gen'))
-                except Exception:
-                    gen = None
+            # ปุ่มโปร่งใสวางทับการ์ดพอดี ทำให้ "แตะที่การ์ด" ทำงานจริง
+            st.markdown(
+                f"""
+                <style>
+                .st-key-flip_overlay_btn {{
+                    margin-top: -{_CARD_HEIGHT}px !important;
+                    height: {_CARD_HEIGHT}px !important;
+                    position: relative;
+                    z-index: 20;
+                }}
+                .st-key-flip_overlay_btn button {{
+                    width: 100% !important;
+                    height: {_CARD_HEIGHT}px !important;
+                    opacity: 0 !important;
+                    cursor: pointer !important;
+                    border: none !important;
+                    background: transparent !important;
+                }}
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
+            if st.button("แตะเพื่อพลิกการ์ด", key="flip_overlay_btn", use_container_width=True):
+                st.session_state.card_flipped = not st.session_state.card_flipped
+                st.rerun()
 
-                if gen == st.session_state.get('flip_generation') and val != st.session_state.get('_last_flip_component_value'):
-                    st.session_state.card_flipped = val
-                    st.session_state._last_flip_component_value = val
-                    st.rerun()
-
-            # ปุ่มสำรอง เผื่อกรณี browser/Streamlit เวอร์ชันไหนไม่รองรับการส่งค่า
-            # กลับจาก components.html (ยังกดพลิกได้แน่ๆ ไม่ต้องพึ่ง JS bridge)
-            if st.button(
-                "🔄 พลิกการ์ด (ถ้าแตะการ์ดแล้วไม่ซิงก์)", use_container_width=True, key="flip_fallback_btn"
-            ):
+            # ปุ่มสำรองแบบเห็นชัดเจน เผื่อบางอุปกรณ์/ขนาดจอ overlay ไม่ตรง
+            # ตำแหน่งพอดี (เช่น มือถือบางรุ่นที่ scale หน้าจอไม่เท่ากัน)
+            if st.button("🔄 พลิกการ์ด (ถ้าแตะกลางการ์ดไม่ได้)", use_container_width=True, key="flip_fallback_btn"):
                 st.session_state.card_flipped = not st.session_state.card_flipped
                 st.rerun()
 
