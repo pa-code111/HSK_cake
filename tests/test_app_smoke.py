@@ -1,5 +1,6 @@
 import csv
 import re
+import time
 import unittest
 from pathlib import Path
 
@@ -49,19 +50,37 @@ class HskAppSmokeTest(unittest.TestCase):
         app = self._guest_app()
         menu = next(widget for widget in app.radio if widget.key == "active_tab_radio")
 
-        menu.set_value("🎯 Quiz").run()
+        menu.set_value("Quiz").run()
         self.assertEqual(list(app.exception), [])
-        listen = next(button for button in app.button if button.label == "🔊 ฟังเสียง → เลือกคำ")
+        listen = next(button for button in app.button if button.label == "ฟังเสียง → เลือกคำ")
         listen.click().run()
         self.assertEqual(list(app.exception), [])
 
+        _button(app, "back_to_flashcard_btn").click().run()
+        self.assertEqual(list(app.exception), [])
+        self.assertEqual(app.session_state["active_tab_radio"], "Flashcard")
+
         menu = next(widget for widget in app.radio if widget.key == "active_tab_radio")
-        menu.set_value("📖 คำศัพท์").run()
+        menu.set_value("คำศัพท์").run()
         self.assertEqual(list(app.exception), [])
 
         menu = next(widget for widget in app.radio if widget.key == "active_tab_radio")
-        menu.set_value("📋 ประวัติ").run()
+        menu.set_value("ประวัติ").run()
         self.assertEqual(list(app.exception), [])
+
+    def test_quiz_auto_advance_moves_to_next_question_after_deadline(self):
+        app = self._guest_app()
+        app.session_state["active_tab_radio"] = "Quiz"
+        app.run()
+        self.assertEqual(list(app.exception), [])
+
+        first_id = str(app.session_state["quiz_question"]["id"])
+        app.session_state["quiz_auto_next"] = True
+        app.session_state["quiz_auto_advance_pending"] = True
+        app.session_state["quiz_auto_advance_at"] = time.time() - 1
+        app.run()
+        self.assertEqual(list(app.exception), [])
+        self.assertNotEqual(str(app.session_state["quiz_question"]["id"]), first_id)
 
     def test_leaderboard_orders_by_correct_and_hides_private_players(self):
         app = self._guest_app()
@@ -74,7 +93,7 @@ class HskAppSmokeTest(unittest.TestCase):
             "Guest": {"correct": 100, "total": 100, "leaderboard_visible": True, "history": []},
         }
         app.session_state["play_history"] = []
-        app.session_state["active_tab_radio"] = "📋 ประวัติ"
+        app.session_state["active_tab_radio"] = "ประวัติ"
         app.run()
         self.assertEqual(list(app.exception), [])
 

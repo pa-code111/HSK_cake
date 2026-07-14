@@ -20,8 +20,7 @@ except ImportError:
     st_autorefresh = None
 
 st.set_page_config(
-    page_title="HSK Flashcard AI",
-    page_icon="🇨🇳",
+    page_title="HSK Cake",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -666,6 +665,20 @@ st.markdown("""
 .flip-card-back .hsk-badge { left:14px; }
 .st-key-remember_btn button { font-size:22px !important; font-weight:800 !important; padding:1.2rem 0.5rem !important; border-radius:14px !important; background-color:rgba(76,175,80,0.15) !important; border:2px solid #4CAF50 !important; color:#2e7d32 !important; line-height:1.2 !important; }
 .st-key-forget_btn button { font-size:22px !important; font-weight:800 !important; padding:1.2rem 0.5rem !important; border-radius:14px !important; background-color:rgba(244,67,54,0.12) !important; border:2px solid #e57373 !important; color:#c62828 !important; line-height:1.2 !important; }
+.st-key-back_to_flashcard_btn button {
+    background: #FFFFFF !important;
+    color: #172033 !important;
+    border: 1px solid #172033 !important;
+    border-radius: 10px !important;
+    font-weight: 700 !important;
+    padding: 0.45rem 1rem !important;
+    box-shadow: 0 2px 0 #172033 !important;
+}
+.st-key-back_to_flashcard_btn button:hover {
+    background: #172033 !important;
+    color: #FFFFFF !important;
+    border-color: #172033 !important;
+}
 .sidebar-section-title { font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #888; margin: 16px 0 6px 2px; }
 .translate-result-box {
     background: rgba(0,0,0,0.05);
@@ -698,8 +711,6 @@ st.markdown("""
     margin: 6px 0;
 }
 
-/* Compact AI panel */
-.ai-panel { font-size:13px; }
 .translate-result-box { padding: 8px 10px; font-size:13px; }
 .example-box { font-size:12px; padding:6px 10px; }
 .ai-panel .st-button button { padding:6px 8px !important; font-size:13px !important; }
@@ -767,26 +778,61 @@ label, label p {
 }
 [data-testid="stHeader"] { background: transparent !important; }
 [data-testid="stMainBlockContainer"] {
-    max-width: 1120px;
-    padding: 2.5rem 2.5rem 4rem !important;
+    max-width: 1180px;
+    padding: 2.6rem 3rem 4rem !important;
 }
 section[data-testid="stSidebar"] {
-    width: 230px !important;
-    min-width: 230px !important;
+    width: 280px !important;
+    min-width: 280px !important;
     background: #FFFFFF !important;
     border-right: 1px solid #DDE2EA;
 }
 section[data-testid="stSidebar"] > div:first-child {
-    width: 230px !important;
+    width: 280px !important;
     background: #FFFFFF !important;
-    padding: 1rem 0.9rem 1.25rem !important;
+    padding: 1.35rem 1.15rem 1.6rem !important;
 }
-section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.45rem; }
+/* Let Streamlit's collapse control remove the sidebar from the layout too. */
+section[data-testid="stSidebar"][aria-expanded="false"] {
+    width: 0 !important;
+    min-width: 0 !important;
+    flex-basis: 0 !important;
+    margin-left: 0 !important;
+    overflow: visible !important;
+    transform: none !important;
+}
+section[data-testid="stSidebar"][aria-expanded="false"] > div:first-child {
+    width: 0 !important;
+    min-width: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+section[data-testid="stSidebar"][aria-expanded="false"] [data-testid="stSidebarCollapseButton"] {
+    position: fixed !important;
+    left: 0.65rem !important;
+    top: 0.8rem !important;
+    z-index: 1001 !important;
+    width: 2.2rem !important;
+    height: 2.2rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: #FFFFFF !important;
+    border: 1px solid #CDD3DE !important;
+    border-radius: 9px !important;
+    box-shadow: 0 5px 14px rgba(30,41,59,.10) !important;
+    visibility: visible !important;
+}
+section[data-testid="stSidebar"][aria-expanded="false"] [data-testid="stSidebarCollapseButton"] button,
+section[data-testid="stSidebar"][aria-expanded="false"] [data-testid="stSidebarCollapseButton"] span {
+    visibility: visible !important;
+}
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.7rem; }
 section[data-testid="stSidebar"] .sidebar-brand {
     display: flex;
     align-items: center;
     gap: 0.55rem;
-    margin: 0.1rem 0 0.65rem;
+    margin: 0.15rem 0 1rem;
     color: #172033;
 }
 section[data-testid="stSidebar"] .sidebar-brand .brand-mark {
@@ -815,7 +861,7 @@ section[data-testid="stSidebar"] .sidebar-section-title {
     color: #8A94A8;
     font-size: 10px;
     letter-spacing: 0.08em;
-    margin: 0.9rem 0 0.2rem 0.15rem;
+    margin: 1.15rem 0 0.35rem 0.15rem;
 }
 section[data-testid="stSidebar"] .stButton > button,
 section[data-testid="stSidebar"] .stLinkButton > a {
@@ -827,7 +873,7 @@ section[data-testid="stSidebar"] .stLinkButton > a {
 section[data-testid="stSidebar"] [data-testid="stRadio"] > div[role="radiogroup"] {
     flex-direction: column !important;
     flex-wrap: nowrap !important;
-    gap: 2px !important;
+    gap: 6px !important;
 }
 section[data-testid="stSidebar"] [data-testid="stRadio"] label {
     width: 100% !important;
@@ -837,7 +883,7 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label {
     border-left: 3px solid transparent !important;
     border-radius: 8px !important;
     color: #68758B !important;
-    padding: 0.45rem 0.65rem !important;
+    padding: 0.62rem 0.8rem !important;
 }
 section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) {
     background: #EEF1FF !important;
@@ -854,6 +900,7 @@ section[data-testid="stSidebar"] [data-testid="stExpander"] {
     background: #F7F8FB !important;
     border: 1px solid #CDD3DE !important;
     border-radius: 9px !important;
+    margin: 0.25rem 0 !important;
 }
 section[data-testid="stSidebar"] [data-testid="stExpander"] details,
 section[data-testid="stSidebar"] [data-testid="stExpander"] summary {
@@ -867,10 +914,11 @@ section[data-testid="stSidebar"] [data-testid="stCheckbox"] label p,
 section[data-testid="stSidebar"] [data-testid="stToggle"] label p,
 section[data-testid="stSidebar"] [data-testid="stNumberInput"] label p {
     color: #172033 !important;
-    font-size: 11px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
 }
 section[data-testid="stSidebar"] [data-testid="stToggle"] [role="switch"] {
-    transform: scale(0.82);
+    transform: scale(0.92);
     transform-origin: right center;
 }
 .page-heading { margin: 0 0 1.25rem; }
@@ -984,9 +1032,24 @@ section[data-testid="stSidebar"] [data-testid="stToggle"] [role="switch"] {
 .study-progress-value { color: #172033; font-size: 16px; font-weight: 800; white-space: nowrap; }
 .study-progress-track { flex: 1; height: 6px; background: #E3E7EE; border-radius: 999px; overflow: hidden; }
 .study-progress-fill { height: 100%; background: #4058C7; border-radius: 999px; }
-[data-testid="stDataFrame"] { border: 1px solid #E0E4EB; border-radius: 12px; overflow: hidden; background: #FFFFFF; }
+[data-testid="stDataFrame"] {
+    border: 1px solid #D5DCE7;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #FFFFFF !important;
+    box-shadow: 0 8px 22px rgba(30,41,59,.07);
+}
+[data-testid="stDataFrame"] > div,
+[data-testid="stDataFrame"] iframe {
+    background: #FFFFFF !important;
+    color-scheme: light !important;
+}
 @media (max-width: 760px) {
-    [data-testid="stMainBlockContainer"] { padding: 1.2rem 0.8rem 3rem !important; }
+    [data-testid="stMainBlockContainer"] { padding: 1.2rem 1rem 3rem !important; }
+    section[data-testid="stSidebar"], section[data-testid="stSidebar"] > div:first-child {
+        width: 260px !important;
+        min-width: 260px !important;
+    }
     .page-heading h1 { font-size: 1.55rem !important; }
     .flip-card { height: 300px !important; }
     .quiz-word-card .quiz-word { font-size: 2.55rem; }
@@ -1105,23 +1168,33 @@ def _activate_player_context(force=False):
 _activate_player_context()
 
 st.sidebar.markdown(
-    '<div class="sidebar-brand"><span class="brand-mark">汉</span>'
-    '<span><b>HSK Cake</b><small>study app</small></span></div>',
+    '<div class="sidebar-brand"><span><b>HSK Cake</b><small>study app</small></span></div>',
     unsafe_allow_html=True,
 )
 
-st.sidebar.markdown('<div class="sidebar-section-title">🙋 ผู้เล่น</div>', unsafe_allow_html=True)
-st.sidebar.markdown(f"**👤 {_current_player_name()}**")
-if st.sidebar.button("🔄 เปลี่ยนผู้ใช้", width="stretch", key="switch_player_btn"):
+st.sidebar.markdown('<div class="sidebar-section-title">ผู้เล่น</div>', unsafe_allow_html=True)
+st.sidebar.markdown(f"**{_current_player_name()}**")
+if st.sidebar.button("เปลี่ยนผู้ใช้", width="stretch", key="switch_player_btn"):
     st.session_state.player_name = ""
     st.rerun()
 
-_TAB_LABELS = ["🎴 Flashcard", "🎯 Quiz", "📖 คำศัพท์", "📋 ประวัติ"]
+_TAB_LABELS = ["Flashcard", "Quiz", "คำศัพท์", "ประวัติ"]
+if st.session_state.get("active_tab_radio") not in _TAB_LABELS:
+    st.session_state.active_tab_radio = "Flashcard"
 st.sidebar.markdown('<div class="sidebar-section-title">เมนู</div>', unsafe_allow_html=True)
 active_tab_choice = st.sidebar.radio(
     "เมนู", _TAB_LABELS,
     horizontal=False, label_visibility="collapsed", key="active_tab_radio",
 )
+
+def _return_to_flashcard():
+    st.session_state.active_tab_radio = "Flashcard"
+
+if active_tab_choice != "Flashcard":
+    st.sidebar.button(
+        "กลับ", width="stretch", key="back_to_flashcard_btn",
+        on_click=_return_to_flashcard,
+    )
 
 
 uploaded = st.session_state.get("_uploaded_file_widget_value", None)
@@ -1345,7 +1418,7 @@ if "col_mapping_show" not in st.session_state:
 if "level_filter" not in st.session_state:
     st.session_state.level_filter = {lvl: True for lvl in HSK_LEVELS}
 
-with st.sidebar.expander("📊 เลือกเลเวล HSK", expanded=True):
+with st.sidebar.expander("เลือกเลเวล HSK", expanded=True):
     for i, lvl in enumerate(HSK_LEVELS):
         widget_key = f"lv_{lvl}"
         if widget_key not in st.session_state:
@@ -1358,7 +1431,7 @@ with st.sidebar.expander("📊 เลือกเลเวล HSK", expanded=Tru
                 key=widget_key,
             )
 
-with st.sidebar.expander("⚙️ การตั้งค่าคอลัมน์ที่แสดง", expanded=False):
+with st.sidebar.expander("การตั้งค่าคอลัมน์ที่แสดง", expanded=False):
     st.caption("เลือกคอลัมน์ที่ต้องการแสดงในตารางคำศัพท์")
     cols_to_show = [
         ("id", "ID"), ("hsk_level", "HSK"), ("word", "คำจีน"), ("pinyin", "พินอิน"),
@@ -1426,13 +1499,13 @@ def get_examples_html(row):
             lines.append(f"{flags[lang]} {val}")
     return lines
 
-st.sidebar.markdown('<div class="sidebar-section-title">🔍 ค้นหา</div>', unsafe_allow_html=True)
+st.sidebar.markdown('<div class="sidebar-section-title">ค้นหา</div>', unsafe_allow_html=True)
 query = st.sidebar.text_input("ค้นหาในทุกคอลัมน์", placeholder="id / คำจีน / พินอิน / แปล", label_visibility="collapsed", key="sidebar_search_query")
 
 if "vocab_search_prefill" not in st.session_state:
     st.session_state.vocab_search_prefill = None
 if "active_tab_radio" not in st.session_state:
-    st.session_state.active_tab_radio = "🎴 Flashcard"
+    st.session_state.active_tab_radio = "Flashcard"
 
 _PREVIEW_COL_ORDER = ["hsk_level", "word", "pinyin", "pos_en", "pos_th", "pos_zh", "trans_th", "trans_en", "example_zh", "example_th", "example_en"]
 _PREVIEW_LABELS = {
@@ -1461,7 +1534,7 @@ def _sidebar_preview_fields(row):
     return pairs
 
 
-@st.dialog("🔍 ผลการค้นหา", width="large")
+@st.dialog("ผลการค้นหา", width="large")
 def _show_search_preview_dialog(results_df):
     st.caption(f"พบทั้งหมด {len(results_df)} คำ — แสดง {min(len(results_df), 30)} คำแรก")
     for _, row in results_df.head(30).iterrows():
@@ -1510,7 +1583,7 @@ if query:
     st.sidebar.caption(f"พบ {len(search_results_df)} คำ")
 
     if len(search_results_df) > 0:
-        if st.sidebar.button("🔍 ดูตัวอย่างขยายเต็มจอ", width="stretch", key="open_search_preview_dialog"):
+        if st.sidebar.button("ดูตัวอย่างขยายเต็มจอ", width="stretch", key="open_search_preview_dialog"):
             _show_search_preview_dialog(search_results_df)
 
     PREVIEW_SHOWN = 5
@@ -1535,7 +1608,7 @@ if query:
             )
             if st.sidebar.button("📖 ไปดูในหน้าคำศัพท์", key=f"goto_vocab_{rid}_{w}", width="stretch"):
                 st.session_state.vocab_search_prefill = str(w)
-                st.session_state.active_tab_radio = "📖 คำศัพท์"
+                st.session_state.active_tab_radio = "คำศัพท์"
                 st.rerun()
 
         if len(search_results_df) > PREVIEW_SHOWN:
@@ -1543,7 +1616,7 @@ if query:
 
     df = search_results_df
 
-with st.sidebar.expander("📂 แหล่งข้อมูล", expanded=False):
+with st.sidebar.expander("แหล่งข้อมูล", expanded=False):
     st.caption("ไม่จำเป็นต้องอัปโหลดไฟล์ — ระบบมีชุดคำศัพท์เริ่มต้นให้แล้ว อัปโหลดเฉพาะกรณีต้องการใช้ไฟล์คำศัพท์ของตัวเอง (CSV/Excel)")
     uploaded = st.file_uploader("อัปโหลดไฟล์ CSV/Excel", type=["csv", "xlsx", "xls"], key="_uploaded_file_widget_value")
     if uploaded is not None:
@@ -1551,7 +1624,7 @@ with st.sidebar.expander("📂 แหล่งข้อมูล", expanded=Fals
     else:
         st.info("📦 กำลังใช้ชุดคำศัพท์เริ่มต้นของระบบ")
 
-st.sidebar.markdown('<div class="sidebar-section-title">⚙️ ตั้งค่า</div>', unsafe_allow_html=True)
+st.sidebar.markdown('<div class="sidebar-section-title">ตั้งค่า</div>', unsafe_allow_html=True)
 
 levels_data = {level for memberships in df["hsk_levels"] for level in memberships}
 selected_levels = [l for l in HSK_LEVELS if st.session_state.level_filter.get(l) and l in levels_data]
@@ -1561,13 +1634,13 @@ filtered_df = df[df["hsk_levels"].apply(lambda memberships: bool(_selected_level
 if "audio_enabled" not in st.session_state:
     st.session_state.audio_enabled = True
 st.session_state.audio_enabled = st.sidebar.toggle(
-    "🔊 เสียง", value=st.session_state.audio_enabled, key="audio_sidebar_toggle",
+    "เสียง", value=st.session_state.audio_enabled, key="audio_sidebar_toggle",
 )
 
 if "ai_panel_open" not in st.session_state:
     st.session_state.ai_panel_open = False
 st.session_state.ai_panel_open = st.sidebar.toggle(
-    "🤖 AI", value=st.session_state.ai_panel_open, key="ai_sidebar_toggle",
+    "AI", value=st.session_state.ai_panel_open, key="ai_sidebar_toggle",
 )
 
 if "quiz_auto_next" not in st.session_state:
@@ -1580,20 +1653,20 @@ if st.session_state.quiz_auto_next:
     if "quiz_auto_next_seconds" not in st.session_state:
         st.session_state.quiz_auto_next_seconds = 2
     st.sidebar.number_input(
-        "⏱️ หน่วงกี่วินาทีก่อนไปข้อถัดไป",
+        "หน่วงกี่วินาทีก่อนไปข้อถัดไป",
         min_value=1, max_value=60, step=1,
         key="quiz_auto_next_seconds",
     )
 
 _backend = st.session_state.get("_progress_backend", "local")
 if _backend == "gsheet":
-    st.sidebar.caption("☁️ บันทึกลง Google Sheets (ถาวรข้าม redeploy)")
+    st.sidebar.caption("บันทึกลง Google Sheets (ถาวรข้าม redeploy)")
 else:
-    st.sidebar.caption("💾 บันทึกในเครื่อง (หายเมื่อแอป redeploy/reboot)")
+    st.sidebar.caption("บันทึกในเครื่อง (หายเมื่อแอป redeploy/reboot)")
 
 _gsheet_error = st.session_state.get("_gsheet_error", "")
 if _gsheet_error and not str(_gsheet_error).startswith("No secrets found"):
-    st.sidebar.caption(f"⚠️ Google Sheets: {_gsheet_error}")
+    st.sidebar.caption(f"Google Sheets: {_gsheet_error}")
 
 _srs_now = pd.Timestamp.now()
 _due_count = 0
@@ -1603,13 +1676,13 @@ for _v in _my_srs_for_due.values():
     if _nd is None or pd.to_datetime(_nd, errors="coerce") <= _srs_now:
         _due_count += 1
 if _due_count > 0:
-    st.sidebar.caption(f"📅 มีคำถึงกำหนดทบทวน {_due_count} คำ")
+    st.sidebar.caption(f"มีคำถึงกำหนดทบทวน {_due_count} คำ")
 
 if "confirm_reset_progress" not in st.session_state:
     st.session_state.confirm_reset_progress = False
 
 if not st.session_state.confirm_reset_progress:
-    if st.sidebar.button("🗑️ ล้างความคืบหน้าทั้งหมดของผู้เล่นปัจจุบัน", width="stretch", key="reset_progress_btn"):
+    if st.sidebar.button("ล้างความคืบหน้าทั้งหมดของผู้เล่นปัจจุบัน", width="stretch", key="reset_progress_btn"):
         st.session_state.confirm_reset_progress = True
         st.rerun()
 else:
@@ -1639,10 +1712,10 @@ else:
             st.rerun()
 
 _PAGE_META = {
-    "🎴 Flashcard": ("Flashcard", "ฝึกคำศัพท์ตามรอบทบทวน"),
-    "🎯 Quiz": ("Quiz", "เห็นคำจีนหรือฟังเสียง แล้วเลือกคำตอบ"),
-    "📖 คำศัพท์": ("คำศัพท์", "ค้นหาและทบทวนคำศัพท์ทั้งหมด"),
-    "📋 ประวัติ": ("ประวัติ", "คะแนนของฉันและ Leaderboard"),
+    "Flashcard": ("Flashcard", "ฝึกคำศัพท์ตามรอบทบทวน"),
+    "Quiz": ("Quiz", "เห็นคำจีนหรือฟังเสียง แล้วเลือกคำตอบ"),
+    "คำศัพท์": ("คำศัพท์", "ค้นหาและทบทวนคำศัพท์ทั้งหมด"),
+    "ประวัติ": ("ประวัติ", "คะแนนของฉันและ Leaderboard"),
 }
 _page_title, _page_subtitle = _PAGE_META[active_tab_choice]
 st.markdown(
@@ -1652,7 +1725,7 @@ st.markdown(
 st.divider()
 
 
-if active_tab_choice == "🎴 Flashcard":
+if active_tab_choice == "Flashcard":
     if filtered_df.empty:
         st.warning("⚠️ ไม่มีคำในเลเวลที่เลือก")
     else:
@@ -1804,17 +1877,17 @@ if active_tab_choice == "🎴 Flashcard":
                 st.session_state.card_flipped = not st.session_state.card_flipped
                 st.rerun()
 
-            if st.button("🔄 พลิกการ์ด (ถ้าแตะกลางการ์ดไม่ได้)", width="stretch", key="flip_fallback_btn"):
+            if st.button("พลิกการ์ด", width="stretch", key="flip_fallback_btn"):
                 st.session_state.card_flipped = not st.session_state.card_flipped
                 st.rerun()
 
             r1, r2 = st.columns(2)
             with r1:
-                if st.button("✅ จำได้", width="stretch", key="remember_btn"):
+                if st.button("จำได้", width="stretch", key="remember_btn"):
                     next_word("remembered")
                     st.rerun()
             with r2:
-                if st.button("❌ จำไม่ได้", width="stretch", key="forget_btn"):
+                if st.button("จำไม่ได้", width="stretch", key="forget_btn"):
                     next_word("forgotten")
                     st.rerun()
 
@@ -1822,18 +1895,18 @@ if active_tab_choice == "🎴 Flashcard":
             with b1:
                 if st.session_state.audio_enabled:
                     try:
-                        render_audio_player(current_word_spoken, "🔊 ฟังเสียง", autoplay=False)
+                        render_audio_player(current_word_spoken, "ฟังเสียง", autoplay=False)
                         st.session_state.audio_played = True
                     except Exception as e:
-                        st.caption(f"⚠️ เสียงไม่พร้อม: {e}")
+                        st.caption(f"เสียงไม่พร้อม: {e}")
                 else:
-                    st.caption("🔇 เสียงปิดอยู่")
+                    st.caption("เสียงปิดอยู่")
             with b2:
-                if st.button("⏭️ ข้าม", width="stretch", key="skip_btn"):
+                if st.button("ข้าม", width="stretch", key="skip_btn"):
                     next_word(None)
                     st.rerun()
             with b3:
-                audio_txt = "🔇 ปิด" if st.session_state.audio_enabled else "🔊 เปิด"
+                audio_txt = "ปิดเสียง" if st.session_state.audio_enabled else "เปิดเสียง"
                 if st.button(audio_txt, width="stretch", key="audio_card_btn"):
                     st.session_state.audio_enabled = not st.session_state.audio_enabled
                     st.rerun()
@@ -1841,23 +1914,23 @@ if active_tab_choice == "🎴 Flashcard":
             st.divider()
             total = len(st.session_state.remembered) + len(st.session_state.forgotten)
             m1, m2, m3 = st.columns(3)
-            m1.metric("📊 ทั้งหมด", total)
-            m2.metric("✅ จำได้", len(st.session_state.remembered))
-            m3.metric("❌ จำไม่ได้", len(st.session_state.forgotten))
+            m1.metric("ทั้งหมด", total)
+            m2.metric("จำได้", len(st.session_state.remembered))
+            m3.metric("จำไม่ได้", len(st.session_state.forgotten))
 
         if st.session_state.ai_panel_open and col_right:
             with col_right:
-                st.subheader("🤖 ผู้ช่วย")
+                st.subheader("ผู้ช่วย AI")
 
                 _reveal_mode_labels = {
-                    "always": "👁️ เปิดค้างตลอด",
-                    "sync_flip": "🔄 เฉลยพร้อมพลิกการ์ด",
+                    "always": "เปิดค้างตลอด",
+                    "sync_flip": "เฉลยพร้อมพลิกการ์ด",
                 }
                 _mode_keys = list(_reveal_mode_labels.keys())
                 if st.session_state.reveal_mode not in _mode_keys:
                     st.session_state.reveal_mode = 'sync_flip'
 
-                with st.expander("⚙️ ตั้งค่าการเฉลย", expanded=False):
+                with st.expander("ตั้งค่าการเฉลย", expanded=False):
                     st.session_state.reveal_mode = st.radio(
                         "โหมดเฉลย", _mode_keys,
                         format_func=lambda k: _reveal_mode_labels[k],
@@ -1870,7 +1943,7 @@ if active_tab_choice == "🎴 Flashcard":
                 else:
                     effective_reveal = st.session_state.card_flipped
 
-                reveal_hint = "🔓 เฉลยแล้ว" if effective_reveal else "🔒 ยังไม่เฉลย (พลิกการ์ดเพื่อดู)"
+                reveal_hint = "เฉลยแล้ว" if effective_reveal else "ยังไม่เฉลย (พลิกการ์ดเพื่อดู)"
                 st.markdown(f"**คำศัพท์:**  \n:gray[{reveal_hint}]")
 
                 current_word_raw = st.session_state.current_word[word_col] if word_col else st.session_state.current_word['word']
@@ -1888,9 +1961,9 @@ if active_tab_choice == "🎴 Flashcard":
 
                 st.markdown(
                     f'<ul style="margin:0 0 0 18px; padding:0;">'
-                    f'<li>🇨🇳 {current_word_text}</li>'
-                    f'<li>📖 {pin_html}</li>'
-                    f'<li>🇹🇭 {mean_html}</li>'
+                    f'<li>{current_word_text}</li>'
+                    f'<li>{pin_html}</li>'
+                    f'<li>{mean_html}</li>'
                     f'</ul>',
                     unsafe_allow_html=True,
                 )
@@ -1901,23 +1974,23 @@ if active_tab_choice == "🎴 Flashcard":
 
                 ex_lines = []
                 if ex_zh_val:
-                    ex_lines.append(f"🇨🇳 {ex_zh_val}")
+                    ex_lines.append(ex_zh_val)
                 if ex_th_val:
                     ex_th_show = ex_th_val if effective_reveal else f'<span class="blurred">{ex_th_val}</span>'
-                    ex_lines.append(f"🇹🇭 {ex_th_show}")
+                    ex_lines.append(ex_th_show)
                 if ex_en_val:
                     ex_en_show = ex_en_val if effective_reveal else f'<span class="blurred">{ex_en_val}</span>'
-                    ex_lines.append(f"🇬🇧 {ex_en_show}")
+                    ex_lines.append(ex_en_show)
 
                 if ex_lines:
-                    st.markdown("**📝 ตัวอย่างประโยค:**")
+                    st.markdown("**ตัวอย่างประโยค:**")
                     for line in ex_lines:
                         st.markdown(f'<div class="example-box">{line}</div>', unsafe_allow_html=True)
 
                 st.divider()
-                st.markdown("**🔠 แปลคำนี้:**")
+                st.markdown("**แปลคำนี้:**")
 
-                if st.button("🤖 MyMemory (แปลทันที)", width="stretch", key="mymemory_card_btn"):
+                if st.button("MyMemory (แปลทันที)", width="stretch", key="mymemory_card_btn"):
                     with st.spinner("กำลังแปล..."):
                         trans = free_translate(current_word_spoken, "zh-CN", "th")
                     if trans:
@@ -1935,15 +2008,15 @@ if active_tab_choice == "🎴 Flashcard":
 
                 btn_c1, btn_c2 = st.columns(2)
                 with btn_c1:
-                    st.link_button("🌍 Google", g_url, width="stretch")
+                    st.link_button("Google", g_url, width="stretch")
                 with btn_c2:
-                    st.link_button("🧠 ChatGPT", gpt_url, width="stretch")
+                    st.link_button("ChatGPT", gpt_url, width="stretch")
 
                 if st.session_state.ai_response and st.session_state.ai_response_word == current_word_text:
                     st.divider()
                     st.markdown(st.session_state.ai_response)
 
-elif active_tab_choice == "🎯 Quiz":
+elif active_tab_choice == "Quiz":
     if filtered_df.empty:
         st.warning("⚠️ ไม่มีคำในเลเวลที่เลือก")
     elif len(filtered_df) < 4:
@@ -1954,13 +2027,13 @@ elif active_tab_choice == "🎯 Quiz":
 
         qm1, qm2 = st.columns(2)
         with qm1:
-            if st.button("👁️ เห็นคำจีน → เลือกความหมาย", width="stretch",
+            if st.button("เห็นคำจีน → เลือกความหมาย", width="stretch",
                          type="primary" if st.session_state.quiz_mode == "meaning" else "secondary"):
                 st.session_state.quiz_mode = "meaning"
                 st.session_state.quiz_question = None
                 st.rerun()
         with qm2:
-            if st.button("🔊 ฟังเสียง → เลือกคำ", width="stretch",
+            if st.button("ฟังเสียง → เลือกคำ", width="stretch",
                          type="primary" if st.session_state.quiz_mode == "listening" else "secondary"):
                 st.session_state.quiz_mode = "listening"
                 st.session_state.quiz_question = None
@@ -1998,15 +2071,24 @@ elif active_tab_choice == "🎯 Quiz":
         target_meaning = target.get(trans_th_col, target.get("trans_th", ""))
         target_level = target.get("hsk_level_label", target.get("hsk_level", ""))
 
+        # Keep a lightweight refresh running while the answer is waiting.
+        # The timer must be registered before checking the deadline; otherwise
+        # the page can stay on the answered card when the optional component
+        # is mounted after the rest of the quiz has rendered.
         if st.session_state.quiz_auto_advance_pending and st.session_state.get("quiz_auto_next", True):
+            if st_autorefresh is not None:
+                st_autorefresh(
+                    interval=250,
+                    key=f"quiz_wait_tick_{target.get('id')}",
+                )
             if st.session_state.quiz_auto_advance_at is not None and time.time() >= st.session_state.quiz_auto_advance_at:
                 _new_quiz_question(exclude_id=target.get("id"))
                 st.rerun()
 
         st.divider()
         sc1, sc2 = st.columns(2)
-        sc1.metric("✅ ถูก", st.session_state.quiz_score_correct)
-        sc2.metric("📊 ทั้งหมด", st.session_state.quiz_score_total)
+        sc1.metric("ถูก", st.session_state.quiz_score_correct)
+        sc2.metric("ทั้งหมด", st.session_state.quiz_score_total)
         st.divider()
 
         if st.session_state.quiz_mode == "meaning":
@@ -2029,7 +2111,7 @@ elif active_tab_choice == "🎯 Quiz":
                 unsafe_allow_html=True,
             )
             try:
-                render_audio_player(target_word_spoken, "🔊 ฟังเสียงซ้ำ", autoplay=False)
+                render_audio_player(target_word_spoken, "ฟังเสียงซ้ำ", autoplay=False)
                 st.session_state.quiz_audio_played = True
             except Exception as e:
                 st.warning(f"ไม่สามารถโหลดเสียงได้: {e}")
@@ -2095,19 +2177,17 @@ elif active_tab_choice == "🎯 Quiz":
                     st.markdown(f'<div class="example-box">{mark} <b>{opt_word}</b> = {opt_meaning}</div>', unsafe_allow_html=True)
 
             if st.session_state.quiz_auto_advance_pending and st.session_state.get("quiz_auto_next", True):
-                st.caption("⏳ กำลังไปข้อถัดไปอัตโนมัติ...")
-                if st_autorefresh is not None:
-                    st_autorefresh(interval=300, key="quiz_wait_tick")
-                if st.button("⏭️ ข้ามการรอ / ข้อถัดไปทันที", width="stretch", key="quiz_skip_wait_btn"):
+                st.caption("กำลังไปข้อถัดไปอัตโนมัติ...")
+                if st.button("ข้ามการรอ / ข้อถัดไปทันที", width="stretch", key="quiz_skip_wait_btn"):
                     _new_quiz_question(exclude_id=target.get("id"))
                     st.rerun()
             else:
-                if st.button("➡️ ข้อถัดไป", width="stretch", key="quiz_next_btn"):
+                if st.button("ข้อถัดไป", width="stretch", key="quiz_next_btn"):
                     _new_quiz_question(exclude_id=target.get("id"))
                     st.rerun()
 
 
-elif active_tab_choice == "📖 คำศัพท์":
+elif active_tab_choice == "คำศัพท์":
     if not filtered_df.empty:
         if "vocab_search_clear_flag" not in st.session_state:
             st.session_state.vocab_search_clear_flag = False
@@ -2242,7 +2322,7 @@ elif active_tab_choice == "📖 คำศัพท์":
 
             st.divider()
 
-            st.markdown("### 🌐 แปลคำศัพท์")
+            st.markdown("### แปลคำศัพท์")
 
             clicked_from_table = st.session_state.get("vocab_translate_from_click", "")
 
@@ -2286,7 +2366,7 @@ elif active_tab_choice == "📖 คำศัพท์":
                 tr_b1, tr_b2, tr_b3 = st.columns(3)
 
                 with tr_b1:
-                    if st.button("🤖 MyMemory", width="stretch", key="vocab_mymemory_btn"):
+                    if st.button("MyMemory", width="stretch", key="vocab_mymemory_btn"):
                         with st.spinner("กำลังแปล..."):
                             trans = free_translate(word_to_translate, "zh-CN", "th")
                         if trans:
@@ -2298,11 +2378,11 @@ elif active_tab_choice == "📖 คำศัพท์":
 
                 with tr_b2:
                     g_url = get_google_translate_url(word_to_translate)
-                    st.link_button("🌍 Google", g_url, width="stretch")
+                    st.link_button("Google", g_url, width="stretch")
 
                 with tr_b3:
                     gpt_url = get_chatgpt_translate_url(word_to_translate)
-                    st.link_button("🧠 ChatGPT", gpt_url, width="stretch")
+                    st.link_button("ChatGPT", gpt_url, width="stretch")
 
                 if st.session_state.get("vocab_translate_result") and st.session_state.get("vocab_translate_target") == word_to_translate:
                     st.markdown(f'<div class="translate-result-box">{st.session_state["vocab_translate_result"]}</div>', unsafe_allow_html=True)
@@ -2317,7 +2397,7 @@ elif active_tab_choice == "📖 คำศัพท์":
     else:
         st.info("ไม่มีคำในเลเวลที่เลือก")
 
-elif active_tab_choice == "📋 ประวัติ":
+elif active_tab_choice == "ประวัติ":
     def _empty_board():
         return pd.DataFrame(columns=["อันดับ", "ผู้เล่น", "ตอบถูก", "ตอบทั้งหมด", "ความแม่นยำ (%)"])
 
@@ -2411,9 +2491,9 @@ elif active_tab_choice == "📋 ประวัติ":
 
     lb_col1, lb_col2, lb_col3 = st.columns([0.52, 0.25, 0.23])
     with lb_col1:
-        st.markdown("### 🏆 Leaderboard")
+        st.markdown("### Leaderboard")
     with lb_col2:
-        if st.button("🔄 รีเฟรช", width="stretch", key="refresh_leaderboard_btn"):
+        if st.button("รีเฟรช", width="stretch", key="refresh_leaderboard_btn"):
             _fresh = _load_progress()
             st.session_state.players_data = _fresh.get("players", {})
             st.session_state.srs_data = _fresh.get("srs", {})
@@ -2421,7 +2501,7 @@ elif active_tab_choice == "📋 ประวัติ":
             _activate_player_context(force=True)
             st.rerun()
     with lb_col3:
-        panel_label = "✕ ปิดตาราง" if st.session_state.show_leaderboard_panel else "🏆 เปิดตาราง"
+        panel_label = "ปิดตาราง" if st.session_state.show_leaderboard_panel else "เปิดตาราง"
         if st.button(panel_label, width="stretch", key="toggle_leaderboard_panel_btn"):
             st.session_state.show_leaderboard_panel = not st.session_state.show_leaderboard_panel
             st.rerun()
@@ -2438,14 +2518,14 @@ elif active_tab_choice == "📋 ประวัติ":
 
         lb_left, lb_right = st.columns(2)
         with lb_left:
-            st.markdown("#### 🎴 Flashcard")
+            st.markdown("#### Flashcard")
             board_fc = _build_mode_board(st.session_state.players_data, "Flashcard")
             if not board_fc.empty:
                 st.dataframe(board_fc, width="stretch", hide_index=True)
             else:
                 st.caption("ยังไม่มีข้อมูล Flashcard")
         with lb_right:
-            st.markdown("#### 🎯 Quiz")
+            st.markdown("#### Quiz")
             board_qz = _build_mode_board(st.session_state.players_data, "Quiz")
             if not board_qz.empty:
                 st.dataframe(board_qz, width="stretch", hide_index=True)
@@ -2453,7 +2533,7 @@ elif active_tab_choice == "📋 ประวัติ":
                 st.caption("ยังไม่มีข้อมูล Quiz")
 
     st.divider()
-    st.markdown("### 📋 ประวัติของฉัน")
+    st.markdown("### ประวัติของฉัน")
     history = st.session_state.get("play_history", [])
     if not history:
         st.info("ยังไม่มีประวัติ")
@@ -2467,9 +2547,9 @@ elif active_tab_choice == "📋 ประวัติ":
 
         total, ok, no = len(hist_df), (hist_df["ผล"] == "✅ จำได้").sum(), (hist_df["ผล"] == "❌ จำไม่ได้").sum()
         m1, m2, m3, m4 = st.columns(4)
-        m1.metric("📊 ทั้งหมด", total)
-        m2.metric("✅ จำได้", ok)
-        m3.metric("❌ จำไม่ได้", no)
+        m1.metric("ทั้งหมด", total)
+        m2.metric("จำได้", ok)
+        m3.metric("จำไม่ได้", no)
         m4.metric("🎯 %", f"{int(ok/total*100) if total else 0}%")
 
         st.divider()
@@ -2478,7 +2558,7 @@ elif active_tab_choice == "📋 ประวัติ":
 
         c1, c2 = st.columns([0.3, 0.7])
         with c1:
-            if st.button("🗑️ ล้าง", width="stretch", key="clear_btn"):
+            if st.button("ล้าง", width="stretch", key="clear_btn"):
                 if hist_mode == "ทั้งหมด":
                     st.session_state.play_history = []
                 else:
