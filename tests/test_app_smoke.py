@@ -1,4 +1,5 @@
 import csv
+import re
 import unittest
 from pathlib import Path
 
@@ -21,6 +22,20 @@ class HskAppSmokeTest(unittest.TestCase):
         self.assertEqual(rows[45]["pos_zh"], "代")
         self.assertEqual(rows[326]["word"], "打1")
         self.assertEqual(rows[5441]["trans_th"], "นัดหยุดงาน")
+
+    def test_vocab_translations_are_clean_after_rebuild(self):
+        han = re.compile(r"[\u3400-\u9fff]")
+        thai = re.compile(r"[ก-๙]")
+        with Path("hsk_vocabnew_fixed.csv").open(encoding="utf-8-sig", newline="") as handle:
+            rows = list(csv.DictReader(handle))
+
+        self.assertTrue(all(thai.search(row["trans_th"]) for row in rows))
+        self.assertFalse(any(han.search(row["trans_th"]) for row in rows))
+        self.assertFalse(any(han.search(row["trans_en"]) for row in rows))
+        self.assertFalse(any(han.search(row["example_th"]) for row in rows))
+        self.assertFalse(any(han.search(row["example_en"]) for row in rows))
+        self.assertFalse(any(row["example_zh"] == "这个词是语法词。" for row in rows))
+        self.assertFalse(any(row["example_zh"].startswith("请给我一") and "|" not in row["example_zh"] for row in rows))
 
     def _guest_app(self):
         app = AppTest.from_file("streamlit_app.py", default_timeout=20)

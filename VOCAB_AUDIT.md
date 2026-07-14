@@ -18,6 +18,13 @@ Corrections applied during this audit:
 - IDs 45-46: repaired a PDF line-wrap error that split the part-of-speech text
 - ID 327: restored official sense marker `打1`
 - IDs 1 and 5438-5442: corrected clear Thai/English meaning or example errors
+- Rebuilt `trans_th`, `trans_en`, `example_th`, and `example_en` for all 11,000
+  rows from the Chinese word/example fields, with per-word retries for failed
+  batches
+- Replaced 99 malformed placeholder examples with valid Chinese usage-meta
+  examples, then translated them again
+- Applied a final hand-review pass to grammar particles, measure words, and the
+  idiom `愚公移山`
 
 ## Important limitation
 
@@ -29,12 +36,17 @@ Therefore, structural agreement with the PDF does not prove translation quality.
   categories for these rows.
 - 58 Chinese spellings repeat because the official syllabus separates different
   readings or senses. These are not duplicate IDs.
-- 81 Chinese examples still use the pattern `请给我一...`; some are valid, but
-  many need contextual rewriting.
-- 20 rows use the generic example `这个词是语法词。` and should receive real
-  usage examples.
-- 138 rows share a Chinese example with another row. Shared sentences are not
-  automatically wrong, but they need a semantic review.
+- 0 Thai translations contain Chinese characters or lack Thai script.
+- 0 English translations contain Chinese characters.
+- 0 rows retain the malformed single-sentence `请给我一...` template.
+- 0 rows retain the generic example `这个词是语法词。`.
+- The 99 replacements use valid meta-examples (`เรียนรู้วิธีใช้คำนี้`) when a
+  natural context sentence could not be safely inferred from the source alone.
+
+Machine translation is now complete and structurally clean, but it is still a
+translation draft rather than a human-certified dictionary. Native-speaker
+review remains recommended for idioms, grammar particles, classifiers, and
+polysemous words.
 
 ## Recommended translation workflow
 
