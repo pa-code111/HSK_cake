@@ -419,6 +419,12 @@ def render_audio_player(text, label="🔊 ฟังเสียง", autoplay=Fa
     safe_text_js = json.dumps(str(text), ensure_ascii=False)
     safe_label = html_lib.escape(label)
     autoplay_js = "true" if autoplay else "false"
+    dark_mode = st.session_state.get("theme_mode") == "ดำ"
+    audio_bg = "#1F2937" if dark_mode else "#FFFFFF"
+    audio_hover_bg = "#374151" if dark_mode else "#F7F8FB"
+    audio_border = "#4B5563" if dark_mode else "#CDD3DE"
+    audio_text = "#F8FAFC" if dark_mode else "#172033"
+    audio_muted = "#A7B0C0" if dark_mode else "#68758B"
     component_html = f"""
     <style>
       html, body {{ margin: 0; padding: 0; background: transparent; font-family: sans-serif; }}
@@ -426,12 +432,12 @@ def render_audio_player(text, label="🔊 ฟังเสียง", autoplay=Fa
       button {{
         width: 100%; height: 46px; min-height: 46px; box-sizing: border-box;
         border-radius: 12px; padding: 0 10px;
-        border: 1px solid #CDD3DE; background: #ffffff;
-        color: #172033; font-size: 16px; font-weight: 700; line-height: 1.1;
+        border: 1px solid {audio_border}; background: {audio_bg};
+        color: {audio_text}; font-size: 16px; font-weight: 700; line-height: 1.1;
         white-space: nowrap; cursor: pointer;
       }}
-      button:hover {{ border-color: #4058C7; background: #F7F8FB; }}
-      #status {{ font-size: 11px; color: #68758B; white-space: nowrap; }}
+      button:hover {{ border-color: #7082E5; background: {audio_hover_bg}; }}
+      #status {{ font-size: 11px; color: {audio_muted}; white-space: nowrap; }}
     </style>
     <div class="speech-wrap">
       <button id="speak" type="button">{safe_label}</button>
@@ -1083,6 +1089,18 @@ if _dark_theme:
         color: #A7B0C0 !important;
     }
     [data-testid="stHeader"] { background: transparent !important; }
+    [data-testid="stSidebarCollapseButton"],
+    [data-testid="stSidebarCollapseButton"] > button {
+        background: #FFFFFF !important;
+        border: 1px solid #CDD3DE !important;
+        color: #172033 !important;
+        box-shadow: 0 5px 14px rgba(0,0,0,.24) !important;
+    }
+    [data-testid="stSidebarCollapseButton"] svg,
+    [data-testid="stSidebarCollapseButton"] [data-testid="stIconMaterial"] {
+        color: #172033 !important;
+        fill: #172033 !important;
+    }
     section[data-testid="stSidebar"] {
         background: #0B1220 !important;
         border-right-color: #273449 !important;
@@ -1107,9 +1125,33 @@ if _dark_theme:
         border-color: #334155 !important;
         color: #F8FAFC !important;
     }
+    section[data-testid="stSidebar"] [data-testid="stRadio"] label p,
+    section[data-testid="stSidebar"] [data-testid="stRadio"] label div[data-testid="stMarkdownContainer"] p {
+        color: #F8FAFC !important;
+    }
     section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) {
         background: #4058C7 !important;
         border-color: #7082E5 !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) p,
+    section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) div[data-testid="stMarkdownContainer"] p {
+        color: #FFFFFF !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stExpander"],
+    section[data-testid="stSidebar"] [data-testid="stExpander"] details,
+    section[data-testid="stSidebar"] [data-testid="stExpander"] summary,
+    section[data-testid="stSidebar"] [data-testid="stExpander"] details > div,
+    section[data-testid="stSidebar"] [data-testid="stExpander"] [role="group"] {
+        background: #111827 !important;
+        color: #F8FAFC !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stExpander"] summary {
+        border-bottom-color: #334155 !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stCheckbox"] label p,
+    section[data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stToggle"] label p,
+    section[data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stNumberInput"] label p {
+        color: #F8FAFC !important;
     }
     .stTextInput input, .stNumberInput input, textarea,
     [data-baseweb="select"] > div {
@@ -1151,12 +1193,13 @@ if _dark_theme:
         background: #1F2937 !important;
         border-color: #475569 !important;
         box-shadow: 0 8px 22px rgba(0,0,0,.24) !important;
+        filter: invert(.92) hue-rotate(180deg) saturate(.9) !important;
     }
     [data-testid="stDataFrame"] > div { background: #1F2937 !important; }
     [data-testid="stDataFrame"] iframe {
         background: #1F2937 !important;
         color-scheme: dark !important;
-        filter: invert(.92) hue-rotate(180deg);
+        filter: none !important;
     }
     [data-testid="stSeparator"] { border-color: #334155 !important; }
     </style>
