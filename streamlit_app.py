@@ -25,6 +25,10 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+if "theme_mode" not in st.session_state:
+    st.session_state.theme_mode = "ขาว"
+_dark_theme = st.session_state.theme_mode == "ดำ"
+
 HSK_LEVELS = ["1", "2", "3", "4", "5", "6", "7-9"]
 
 # ─── บันทึกความคืบหน้าแบบถาวร (SRS + ประวัติ) ───────────────────────────────
@@ -1030,8 +1034,8 @@ section[data-testid="stSidebar"] [data-testid="stToggle"] [role="switch"] {
 }
 .study-progress-label { color: #68758B; font-size: 11px; }
 .study-progress-value { color: #172033; font-size: 16px; font-weight: 800; white-space: nowrap; }
-.study-progress-track { flex: 1; height: 6px; background: #E3E7EE; border-radius: 999px; overflow: hidden; }
-.study-progress-fill { height: 100%; background: #4058C7; border-radius: 999px; }
+.study-progress-track { flex: 1; min-width: 8rem; height: 8px; background: #E3E7EE; border-radius: 999px; overflow: hidden; }
+.study-progress-fill { display: block; height: 100%; min-width: 0; background: linear-gradient(90deg, #4058C7, #6C7FE5); border-radius: 999px; transition: width .25s ease; }
 [data-testid="stDataFrame"] {
     border: 1px solid #D5DCE7;
     border-radius: 14px;
@@ -1056,6 +1060,107 @@ section[data-testid="stSidebar"] [data-testid="stToggle"] [role="switch"] {
 }
 </style>
 """, unsafe_allow_html=True)
+
+if _dark_theme:
+    st.markdown("""
+    <style>
+    :root { color-scheme: dark; }
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
+        background: #111827 !important;
+        color: #F8FAFC !important;
+    }
+    [data-testid="stMainBlockContainer"] { background: transparent !important; }
+    .stMarkdown, .stMarkdown p, .stMarkdown li, .stMarkdown strong,
+    .stCaption, [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p,
+    label, label p, .page-heading h1, .page-heading p,
+    [data-testid="stMetricValue"], .study-progress-value,
+    .meaning-text, .quiz-word-card .quiz-word {
+        color: #F8FAFC !important;
+    }
+    .stCaption, [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p,
+    .page-heading p, .study-progress-label, .pinyin-text,
+    .quiz-word-card .quiz-pinyin, .click-hint, [data-testid="stMetricLabel"] {
+        color: #A7B0C0 !important;
+    }
+    [data-testid="stHeader"] { background: transparent !important; }
+    section[data-testid="stSidebar"] {
+        background: #0B1220 !important;
+        border-right-color: #273449 !important;
+    }
+    section[data-testid="stSidebar"] > div:first-child,
+    section[data-testid="stSidebar"] [data-testid="stExpander"] {
+        background: #111827 !important;
+    }
+    section[data-testid="stSidebar"] .sidebar-brand,
+    section[data-testid="stSidebar"] .sidebar-section-title,
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] label p,
+    section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
+        color: #F8FAFC !important;
+    }
+    section[data-testid="stSidebar"] .sidebar-section-title { color: #A7B0C0 !important; }
+    section[data-testid="stSidebar"] [data-testid="stExpander"] {
+        border-color: #334155 !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stRadio"] label {
+        background: #172033 !important;
+        border-color: #334155 !important;
+        color: #F8FAFC !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) {
+        background: #4058C7 !important;
+        border-color: #7082E5 !important;
+    }
+    .stTextInput input, .stNumberInput input, textarea,
+    [data-baseweb="select"] > div {
+        background: #1F2937 !important;
+        color: #F8FAFC !important;
+        border-color: #4B5563 !important;
+    }
+    .stTextInput input::placeholder, .stNumberInput input::placeholder { color: #94A3B8 !important; }
+    .stButton > button, .stLinkButton > a, .stDownloadButton > button {
+        background: #1F2937 !important;
+        color: #F8FAFC !important;
+        border-color: #4B5563 !important;
+    }
+    .stButton > button:hover, .stLinkButton > a:hover, .stDownloadButton > button:hover {
+        background: #374151 !important;
+        border-color: #94A3B8 !important;
+    }
+    .stButton > button[kind="primary"], .stButton > button[data-testid="baseButton-primary"] {
+        background: #4058C7 !important;
+        color: #FFFFFF !important;
+        border-color: #7082E5 !important;
+    }
+    .st-key-back_to_flashcard_btn button {
+        background: #F8FAFC !important;
+        color: #111827 !important;
+        border-color: #F8FAFC !important;
+        box-shadow: 0 2px 0 #000000 !important;
+    }
+    [data-testid="stMetric"], .study-progress,
+    .quiz-word-card, .quiz-audio-card, .translate-result-box,
+    .search-result-card, .example-box, .flip-card-front, .flip-card-back {
+        background: #1F2937 !important;
+        border-color: #374151 !important;
+        color: #F8FAFC !important;
+    }
+    .ex-line { background: #273449 !important; border-color: #475569 !important; color: #F8FAFC !important; }
+    .study-progress-track { background: #374151 !important; }
+    [data-testid="stDataFrame"] {
+        background: #1F2937 !important;
+        border-color: #475569 !important;
+        box-shadow: 0 8px 22px rgba(0,0,0,.24) !important;
+    }
+    [data-testid="stDataFrame"] > div { background: #1F2937 !important; }
+    [data-testid="stDataFrame"] iframe {
+        background: #1F2937 !important;
+        color-scheme: dark !important;
+        filter: invert(.92) hue-rotate(180deg);
+    }
+    [data-testid="stSeparator"] { border-color: #334155 !important; }
+    </style>
+    """, unsafe_allow_html=True)
 
 if "progress_loaded" not in st.session_state:
     _saved = _load_progress()
@@ -1195,6 +1300,12 @@ if active_tab_choice != "Flashcard":
         "กลับ", width="stretch", key="back_to_flashcard_btn",
         on_click=_return_to_flashcard,
     )
+
+st.sidebar.markdown('<div class="sidebar-section-title">โทนสี</div>', unsafe_allow_html=True)
+st.sidebar.radio(
+    "โทนสี", ["ขาว", "ดำ"], horizontal=True,
+    label_visibility="collapsed", key="theme_mode",
+)
 
 
 uploaded = st.session_state.get("_uploaded_file_widget_value", None)
@@ -1818,8 +1929,10 @@ if active_tab_choice == "Flashcard":
             _study_progress = min(100, int((_study_done / _study_goal) * 100))
             st.markdown(
                 f'<div class="study-progress"><span class="study-progress-label">วันนี้</span>'
-                f'<span class="study-progress-value">{_study_done} / {_study_goal} คำ</span>'
-                f'<span class="study-progress-track"><span class="study-progress-fill" style="width:{_study_progress}%"></span></span></div>',
+                f'<span class="study-progress-value">{_study_done} / {_study_goal} คำ ({_study_progress}%)</span>'
+                f'<span class="study-progress-track" role="progressbar" aria-valuenow="{_study_progress}" '
+                f'aria-valuemin="0" aria-valuemax="100" aria-label="ความคืบหน้าวันนี้">'
+                f'<span class="study-progress-fill" style="width:{_study_progress}%"></span></span></div>',
                 unsafe_allow_html=True,
             )
 
