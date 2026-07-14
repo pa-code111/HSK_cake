@@ -421,11 +421,11 @@ def render_audio_player(text, label="🔊 ฟังเสียง", autoplay=Fa
       html, body {{ margin: 0; padding: 0; background: transparent; font-family: sans-serif; }}
       .speech-wrap {{ display: flex; align-items: center; gap: 8px; width: 100%; }}
       button {{
-        width: 100%; min-height: 38px; border-radius: 8px;
-        border: 1px solid #d1d5db; background: #ffffff;
-        color: #111827; font-size: 14px; font-weight: 700; cursor: pointer;
+        width: 100%; min-height: 54px; border-radius: 12px;
+        border: 1px solid rgba(255,255,255,.22); background: #262a34;
+        color: #ffffff; font-size: 22px; font-weight: 800; cursor: pointer;
       }}
-      button:hover {{ border-color: #9ca3af; background: #f3f4f6; }}
+      button:hover {{ border-color: #7d8799; background: #323744; }}
       #status {{ font-size: 11px; color: #888; white-space: nowrap; }}
     </style>
     <div class="speech-wrap">
