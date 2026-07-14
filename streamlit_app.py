@@ -1094,6 +1094,36 @@ with st.sidebar.expander("📊 เลือกเลเวล HSK", expanded=Tru
                 key=widget_key,
             )
 
+with st.sidebar.expander("⚙️ การตั้งค่าคอลัมน์ที่แสดง", expanded=False):
+    st.caption("เลือกคอลัมน์ที่ต้องการแสดงในตารางคำศัพท์")
+    cols_to_show = [
+        ("id", "ID"), ("hsk_level", "HSK"), ("word", "คำจีน"), ("pinyin", "พินอิน"),
+        ("pos_en", "ชนิดคำ (EN)"), ("pos_th", "ชนิดคำ (TH)"), ("pos_zh", "ชนิดคำ (ZH)"),
+        ("trans_th", "แปลไทย"), ("trans_en", "แปลอังกฤษ"), ("example_zh", "ตัวอย่าง (ZH)"),
+        ("example_th", "ตัวอย่าง (TH)"), ("example_en", "ตัวอย่าง (EN)")
+    ]
+
+    for i in range(0, len(cols_to_show), 2):
+        c1, c2 = st.columns(2)
+        key1, label1 = cols_to_show[i]
+        with c1:
+            st.session_state.col_display_toggle[key1] = st.checkbox(
+                label1,
+                st.session_state.col_display_toggle.get(key1, True),
+                key=f"tog_{key1}",
+            )
+        if i + 1 < len(cols_to_show):
+            key2, label2 = cols_to_show[i + 1]
+            with c2:
+                st.session_state.col_display_toggle[key2] = st.checkbox(
+                    label2,
+                    st.session_state.col_display_toggle.get(
+                        key2,
+                        False if key2.startswith("pos_") else True,
+                    ),
+                    key=f"tog_{key2}",
+                )
+
 word_col = st.session_state.col_mapping.get("word", "word")
 pinyin_col = st.session_state.col_mapping.get("pinyin", "pinyin")
 trans_th_col = st.session_state.col_mapping.get("trans_th", "trans_th")
@@ -1248,24 +1278,6 @@ if query:
             st.sidebar.caption(f"...และอีก {len(search_results_df) - PREVIEW_SHOWN} คำ — กด 'ดูตัวอย่างขยายเต็มจอ' ด้านบน หรือพิมพ์ให้เจาะจงขึ้น")
 
     df = search_results_df
-
-with st.sidebar.expander("⚙️ การตั้งค่าคอลัมน์ที่แสดง", expanded=True):
-    cols_to_show = [
-        ("id", "ID"), ("hsk_level", "HSK"), ("word", "คำจีน"), ("pinyin", "พินอิน"),
-        ("pos_en", "ชนิดคำ (EN)"), ("pos_th", "ชนิดคำ (TH)"), ("pos_zh", "ชนิดคำ (ZH)"),
-        ("trans_th", "แปลไทย"), ("trans_en", "แปลอังกฤษ"), ("example_zh", "ตัวอย่าง (ZH)"),
-        ("example_th", "ตัวอย่าง (TH)"), ("example_en", "ตัวอย่าง (EN)")
-    ]
-
-    for i in range(0, len(cols_to_show), 2):
-        c1, c2 = st.columns(2)
-        key1, label1 = cols_to_show[i]
-        with c1:
-            st.session_state.col_display_toggle[key1] = st.checkbox(label1, st.session_state.col_display_toggle.get(key1, True), key=f"tog_{key1}")
-        if i + 1 < len(cols_to_show):
-            key2, label2 = cols_to_show[i + 1]
-            with c2:
-                st.session_state.col_display_toggle[key2] = st.checkbox(label2, st.session_state.col_display_toggle.get(key2, False if key2.startswith('pos_') else True), key=f"tog_{key2}")
 
 with st.sidebar.expander("📂 แหล่งข้อมูล", expanded=False):
     st.caption("ไม่จำเป็นต้องอัปโหลดไฟล์ — ระบบมีชุดคำศัพท์เริ่มต้นให้แล้ว อัปโหลดเฉพาะกรณีต้องการใช้ไฟล์คำศัพท์ของตัวเอง (CSV/Excel)")
