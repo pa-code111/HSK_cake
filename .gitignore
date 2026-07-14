@@ -1,5 +1,9 @@
 .streamlit/secrets.toml
 
+# Runtime-only learner data and generated speech files
+user_data/
+audio_cache/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -1,7 +1,5 @@
 import streamlit as st
 import pandas as pd
-from gtts import gTTS
-import io
 import requests
 import urllib.parse
 import unicodedata
@@ -11,8 +9,7 @@ import os
 import random
 import time
 import tempfile
-import hashlib
-import base64
+import html as html_lib
 import streamlit.components.v1 as components
 from datetime import datetime, timedelta
 from functools import lru_cache
@@ -44,14 +41,6 @@ except Exception:
 
 PROGRESS_FILE = os.path.join(_DATA_DIR, "hsk_progress.json")
 
-# ─── สร้างโฟลเดอร์ audio_cache สำหรับเก็บไฟล์เสียง gTTS ──────────────────────
-try:
-    AUDIO_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audio_cache")
-    os.makedirs(AUDIO_CACHE_DIR, exist_ok=True)
-except Exception:
-    AUDIO_CACHE_DIR = os.path.join(tempfile.gettempdir(), "audio_cache")
-    os.makedirs(AUDIO_CACHE_DIR, exist_ok=True)
-
 FIXED_CSV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hsk_vocabnew_fixed.csv")
 
 SRS_INTERVAL_DAYS = {1: 0, 2: 1, 3: 3, 4: 7, 5: 14, 6: 30}
@@ -68,13 +57,18 @@ def _get_gsheet_worksheet():
     except ImportError:
         return None
     try:
-        if "gcp_service_account" not in st.secrets:
+        try:
+            service_account_info = st.secrets.get("gcp_service_account")
+            sheet_id = st.secrets.get("gsheet_id")
+        except FileNotFoundError:
+            # Running locally without secrets is a supported fallback, not an error.
+            st.session_state.pop("_gsheet_error", None)
             return None
-        sheet_id = st.secrets.get("gsheet_id")
-        if not sheet_id:
+        if not service_account_info or not sheet_id:
+            st.session_state.pop("_gsheet_error", None)
             return None
         scopes = ["https://www.googleapis.com/auth/spreadsheets"]
-        creds = Credentials.from_service_account_info(dict(st.secrets["gcp_service_account"]), scopes=scopes)
+        creds = Credentials.from_service_account_info(dict(service_account_info), scopes=scopes)
         gc = gspread.authorize(creds)
         sh = gc.open_by_key(sheet_id)
         try:
@@ -143,8 +137,15 @@ def _load_progress():
                         "correct": val.get("correct", 0),
                         "total": val.get("total", 0),
                         "last_active": val.get("last_active"),
+                        "leaderboard_visible": val.get("leaderboard_visible", True),
+                        "history": val.get("history", []),
                     }
                     data["srs"][name] = val.get("srs", {})
+            legacy_history = data.get("history", [])
+            if legacy_history:
+                for name, player in data["players"].items():
+                    if not player.get("history"):
+                        player["history"] = [h for h in legacy_history if h.get("ผู้เล่น") == name]
             st.session_state["_progress_backend"] = "gsheet"
             return data
         except Exception as e:
@@ -161,22 +162,22 @@ def _load_progress():
         data.setdefault("players", {})
         if _is_legacy_flat_srs(data["srs"]):
             data["srs"] = {"_เดิม (รวม)": data["srs"]}
+        legacy_history = data.get("history", [])
+        for name, player in data["players"].items():
+            if not isinstance(player, dict):
+                data["players"][name] = player = {}
+            player.setdefault("leaderboard_visible", True)
+            if not player.get("history"):
+                player["history"] = [h for h in legacy_history if h.get("ผู้เล่น") == name]
         return data
     except Exception:
         return {"srs": {}, "history": [], "remembered": [], "forgotten": [], "players": {}}
 
 
-def _merge_history_for_player(existing_history, my_history, player_name):
-    others = [h for h in (existing_history or []) if h.get("ผู้เล่น") != player_name]
-    mine = [h for h in (my_history or []) if h.get("ผู้เล่น") == player_name]
-    merged = (others + mine)[-MAX_HISTORY:]
-    return merged
-
-
-# ── หน่วงการซิงก์ Google Sheets (throttle) — ขยายเวลาจาก 5/20 เป็น 15/60 ──────
-# ทำให้ sync ขึ้น Google Sheets น้อยลงมากขึ้น ไฟล์ local ยังคงเซฟ "ทันที" ทุกครั้ง
-_GSHEET_SYNC_EVERY_N_ANSWERS = 15
-_GSHEET_SYNC_EVERY_SECONDS = 60
+# Keep answer flow responsive while limiting Google Sheets requests. Visiting
+# History forces a final sync, so the public board does not stay stale.
+_GSHEET_SYNC_EVERY_N_ANSWERS = 5
+_GSHEET_SYNC_EVERY_SECONDS = 20
 
 
 def _gsheet_sync_due():
@@ -196,26 +197,31 @@ def _save_progress(force_gsheet_sync=False):
     srs_all = st.session_state.get("srs_data", {})
     my_srs = srs_all.get(name, {})
     players = st.session_state.get("players_data", {})
-    my_player = players.get(name, {"correct": 0, "total": 0, "last_active": None})
-
-    my_history_session = st.session_state.get("play_history", [])
+    my_player = dict(players.get(name, {"correct": 0, "total": 0, "last_active": None}))
+    my_history_session = [
+        h for h in st.session_state.get("play_history", [])
+        if h.get("ผู้เล่น", name) == name
+    ][-MAX_HISTORY:]
+    st.session_state.play_history = my_history_session
+    my_player["history"] = my_history_session
+    my_player.setdefault("leaderboard_visible", True)
+    players[name] = my_player
+    st.session_state.players_data = players
 
     if force_gsheet_sync or _gsheet_sync_due():
         ws = _get_gsheet_worksheet()
         if ws is not None:
             try:
                 cache = _gsheet_read_all(ws)
-                remote_history = cache["history"][1] if "history" in cache and isinstance(cache["history"][1], list) else []
-                merged_history = _merge_history_for_player(remote_history, my_history_session, name)
-                _gsheet_upsert_row(ws, "history", merged_history, cache)
                 _gsheet_upsert_row(ws, f"players:{name}", {
                     "srs": my_srs,
                     "correct": my_player.get("correct", 0),
                     "total": my_player.get("total", 0),
                     "last_active": my_player.get("last_active"),
+                    "leaderboard_visible": my_player.get("leaderboard_visible", True),
+                    "history": my_history_session,
                 }, cache)
                 st.session_state["_progress_backend"] = "gsheet"
-                st.session_state.play_history = merged_history
             except Exception as e:
                 st.session_state["_gsheet_error"] = str(e)
 
@@ -227,21 +233,21 @@ def _save_progress(force_gsheet_sync=False):
             existing_local = {}
         if not isinstance(existing_local, dict):
             existing_local = {}
-        existing_local_history = existing_local.get("history", [])
         existing_local_players = existing_local.get("players", {})
         existing_local_srs = existing_local.get("srs", {})
 
-        merged_local_history = _merge_history_for_player(existing_local_history, my_history_session, name)
-        st.session_state.play_history = merged_local_history
-
         merged_players = dict(existing_local_players) if isinstance(existing_local_players, dict) else {}
+        # Preserve profiles already loaded from Google Sheets or another local
+        # session; saving one player must not drop everyone else in memory.
+        merged_players.update(players)
         merged_players[name] = my_player
         merged_srs = dict(existing_local_srs) if isinstance(existing_local_srs, dict) else {}
+        merged_srs.update(srs_all)
         merged_srs[name] = my_srs
 
         local_data = {
             "srs": merged_srs,
-            "history": merged_local_history,
+            "history": [],
             "remembered": st.session_state.get("remembered", []),
             "forgotten": st.session_state.get("forgotten", []),
             "players": merged_players,
@@ -262,11 +268,13 @@ def _current_player_name():
 def _record_player_result(correct):
     name = _current_player_name()
     players = st.session_state.get("players_data", {})
-    p = players.get(name, {"correct": 0, "total": 0, "last_active": None})
+    p = dict(players.get(name, {"correct": 0, "total": 0, "last_active": None}))
     p["total"] = p.get("total", 0) + 1
     if correct:
         p["correct"] = p.get("correct", 0) + 1
     p["last_active"] = datetime.now().isoformat()
+    p.setdefault("leaderboard_visible", True)
+    p.setdefault("history", [])
     players[name] = p
     st.session_state.players_data = players
 
@@ -283,7 +291,15 @@ def _update_srs(word_id, correct):
     else:
         box = 1
     due = datetime.now() + timedelta(days=SRS_INTERVAL_DAYS.get(box, 0))
-    my_srs[wid] = {"box": box, "next_due": due.isoformat(), "last_result": "correct" if correct else "wrong"}
+    current_total = int(st.session_state.get("players_data", {}).get(name, {}).get("total", 0) or 0)
+    my_srs[wid] = {
+        "box": box,
+        "next_due": due.isoformat(),
+        "last_result": "correct" if correct else "wrong",
+        # A wrong answer becomes eligible only after five other answers.
+        # current_total is before _record_player_result increments this answer.
+        "retry_after_total": None if correct else current_total + 6,
+    }
     all_srs[name] = my_srs
     st.session_state.srs_data = all_srs
     _record_player_result(correct)
@@ -291,88 +307,76 @@ def _update_srs(word_id, correct):
 
 
 def pick_srs_word(pool_df, exclude_id=None):
-    """Pick the next word to study from pool_df, prioritizing (in order):
-    1) words that are 'due' for review, weakest box first
-    2) brand-new words never studied yet
-    3) if everything is fresh/ahead of schedule, the soonest-due word
-    
-    ✅ OPTIMIZED: merge แค่คอลัมน์ที่ต้อง (id, box, next_due) แทน merge ทั้งชุด
-    ทำให้ลดการ copy คอลัมน์ example_zh/th/en ที่ไม่ใช้ → เร็วขึ้นเวลามีคำเยอะๆ"""
+    """Choose due cards, then new cards, while spacing wrong retries."""
     if pool_df.empty:
         return None
     name = _current_player_name()
     srs = st.session_state.get("srs_data", {}).get(name, {})
     if not srs:
-        return pool_df.sample().iloc[0]
+        candidates = pool_df
+        if exclude_id is not None and len(candidates) > 1:
+            candidates = candidates[candidates["id"].astype(str) != str(exclude_id)]
+        return candidates.sample().iloc[0]
 
     srs_rows = [
-        {"id": k, "box": v.get("box", 1), "next_due": v.get("next_due")}
+        {
+            "id": k,
+            "box": v.get("box", 1),
+            "next_due": v.get("next_due"),
+            "retry_after_total": v.get("retry_after_total"),
+        }
         for k, v in srs.items()
     ]
-    srs_df = pd.DataFrame(srs_rows) if srs_rows else pd.DataFrame(columns=["id", "box", "next_due"])
+    srs_df = pd.DataFrame(srs_rows) if srs_rows else pd.DataFrame(columns=["id", "box", "next_due", "retry_after_total"])
     if not srs_df.empty:
         srs_df["id"] = srs_df["id"].astype(str)
         srs_df["next_due"] = pd.to_datetime(srs_df["next_due"], errors="coerce")
+        srs_df["retry_after_total"] = pd.to_numeric(srs_df["retry_after_total"], errors="coerce")
 
     pool = pool_df.copy()
     pool["_id_str"] = pool["id"].astype(str)
-    
-    # ✅ OPTIMIZATION: merge แค่ id, box, next_due แทน merge ทั้งชุด
-    srs_small = srs_df[["id", "box", "next_due"]].copy()
+    srs_small = srs_df[["id", "box", "next_due", "retry_after_total"]].copy()
     merged = pool.merge(srs_small, left_on="_id_str", right_on="id", how="left", suffixes=("", "_srs"))
 
     now = pd.Timestamp.now()
+    current_total = int(st.session_state.get("players_data", {}).get(name, {}).get("total", 0) or 0)
+    retry_ready = merged["retry_after_total"].isna() | (merged["retry_after_total"] <= current_total)
     is_new = merged["box"].isna()
-    is_due = (~is_new) & (merged["next_due"] <= now)
-    is_future = (~is_new) & (~is_due)
+    is_due = (~is_new) & retry_ready & (merged["next_due"] <= now)
+    is_future = (~is_new) & retry_ready & (merged["next_due"] > now)
 
-    due_pool = merged[is_due]
+    # Avoid showing the exact same card twice in a row whenever another card
+    # in the same priority group is available.
+    not_previous = merged["_id_str"] != str(exclude_id) if exclude_id is not None else pd.Series(True, index=merged.index)
+
+    due_pool = merged[is_due & not_previous]
+    if due_pool.empty:
+        due_pool = merged[is_due]
     if not due_pool.empty:
         min_box = due_pool["box"].min()
-        candidates = due_pool[due_pool["box"] == min_box]
-        chosen = candidates.sample().iloc[0]
-        if exclude_id is not None and str(chosen.get("_id_str")) == str(exclude_id) and len(pool_df) > 1:
-            merged2 = merged[merged["_id_str"] != str(exclude_id)]
-            due2 = (~merged2["box"].isna()) & (pd.to_datetime(merged2["next_due"], errors="coerce") <= pd.Timestamp.now())
-            if due2.any():
-                mp = merged2[due2]
-                mb = mp["box"].min()
-                cand2 = mp[mp["box"] == mb]
-                return cand2.sample().iloc[0]
-            new2 = merged2[merged2["box"].isna()]
-            if not new2.empty:
-                return new2.sample().iloc[0]
-            fut2 = merged2[~merged2["box"].isna() & (pd.to_datetime(merged2["next_due"], errors="coerce") > pd.Timestamp.now())]
-            if not fut2.empty:
-                return fut2.sort_values("next_due").iloc[0]
-        return chosen
+        return due_pool[due_pool["box"] == min_box].sample().iloc[0]
 
-    new_pool = merged[is_new]
+    new_pool = merged[is_new & not_previous]
+    if new_pool.empty:
+        new_pool = merged[is_new]
     if not new_pool.empty:
-        chosen = new_pool.sample().iloc[0]
-        if exclude_id is not None and str(chosen.get("_id_str")) == str(exclude_id) and len(pool_df) > 1:
-            merged2 = merged[merged["_id_str"] != str(exclude_id)]
-            future_pool2 = merged2[~merged2["box"].isna() & (pd.to_datetime(merged2["next_due"], errors="coerce") > pd.Timestamp.now())]
-            if not future_pool2.empty:
-                return future_pool2.sort_values("next_due").iloc[0]
-            return merged2.sample().iloc[0]
-        return chosen
+        return new_pool.sample().iloc[0]
 
-    future_pool = merged[is_future]
+    future_pool = merged[is_future & not_previous]
+    if future_pool.empty:
+        future_pool = merged[is_future]
     if not future_pool.empty:
-        chosen = future_pool.sort_values("next_due").iloc[0]
-        if exclude_id is not None and str(chosen.get("_id_str")) == str(exclude_id) and len(pool_df) > 1:
-            merged2 = merged[merged["_id_str"] != str(exclude_id)]
-            new2 = merged2[merged2["box"].isna()]
-            if not new2.empty:
-                return new2.sample().iloc[0]
-            due2 = (~merged2["box"].isna()) & (pd.to_datetime(merged2["next_due"], errors="coerce") <= pd.Timestamp.now())
-            if due2.any():
-                m2 = merged2[due2]
-                mb2 = m2["box"].min()
-                c2 = m2[m2["box"] == mb2]
-                return c2.sample().iloc[0]
-        return chosen
+        return future_pool.sort_values("next_due").iloc[0]
+
+    # All cards can be temporarily deferred only in a very small custom list.
+    # Keep the app usable by selecting the card whose retry gate opens first.
+    deferred = merged[~is_new].sort_values("retry_after_total", na_position="last")
+    if exclude_id is not None and len(deferred) > 1:
+        deferred_without_previous = deferred[deferred["_id_str"] != str(exclude_id)]
+        if not deferred_without_previous.empty:
+            deferred = deferred_without_previous
+    if not deferred.empty:
+        return deferred.iloc[0]
 
     if exclude_id is not None and len(pool_df) > 1:
         pool2 = pool_df[pool_df["id"].astype(str) != str(exclude_id)]
@@ -407,82 +411,72 @@ def get_default_vocab():
     ])
 
 
-# ✅ OPTIMIZATION Task 1: Cache เสียง gTTS ลงไฟล์ disk + หน่วยความจำ
-# - ครั้งแรกที่พูดคำใหม่ → เรียก gTTS → เซฟลงไฟล์ (persistent)
-# - ครั้งต่อไป → อ่านจากไฟล์ (เร็วกว่า network call หลายเท่า)
-# - @st.cache_data ยังเก็บไว้เป็นเลเยอร์ cache หน่วยความจำด้านบน (เร็วที่สุด)
-def _get_audio_cache_filename(text):
-    """สร้าง safe filename จากจีน โดยใช้ hash เพื่อไม่ให้เกิดปัญหา unicode"""
-    text_safe = text.encode('utf-8')
-    text_hash = hashlib.sha256(text_safe).hexdigest()[:16]
-    return f"{text_hash}.mp3"
-
-
-@st.cache_data(show_spinner=False)
-def speak_word_bytes(text):
-    """เล่นเสียง: อ่านจากไฟล์ disk ถ้ามี ถ้าไม่มีค่อย gTTS แล้วเซฟ"""
-    audio_filename = _get_audio_cache_filename(text)
-    audio_filepath = os.path.join(AUDIO_CACHE_DIR, audio_filename)
-    
-    # ✅ เช็คว่ามีไฟล์ cache บน disk ไหม
-    if os.path.exists(audio_filepath):
-        try:
-            with open(audio_filepath, 'rb') as f:
-                return f.read()
-        except Exception:
-            pass
-    
-    # ถ้าไม่มี ให้ gTTS สร้างเสียง
-    tts = gTTS(text, lang='zh-cn')
-    fp = io.BytesIO()
-    tts.write_to_fp(fp)
-    audio_bytes = fp.getvalue()
-    
-    # ✅ เซฟลงไฟล์เพื่อครั้งต่อไป
-    try:
-        with open(audio_filepath, 'wb') as f:
-            f.write(audio_bytes)
-    except Exception:
-        pass  # ถ้าเซฟไม่ได้ ยังคงใช้เสียง ไม่ error
-    
-    return audio_bytes
-
-
-def speak_word(text):
-    return io.BytesIO(speak_word_bytes(text))
-
-
-# ✅ NEW: เล่นเสียงผ่าน <audio> element ตัวเดียวที่ฝังอยู่บนหน้าเว็บหลัก (window.parent.document)
-# แทนการสร้าง element ใหม่ทุกครั้งแบบ st.audio() — เพราะเบราว์เซอร์ (โดยเฉพาะมือถือ/Safari)
-# จะบล็อก autoplay ของ element ใหม่ที่ไม่ได้เกิดจากการคลิกของผู้ใช้โดยตรง (เช่น หลัง st.rerun()
-# หรือ auto-advance ผ่าน st_autorefresh) แต่จะยังคง "เล่นต่อ" บน element เดิมที่เคยเล่นสำเร็จ
-# จากการคลิกของผู้ใช้มาก่อนได้ แม้จะสั่งจาก JS/timer ในภายหลัง
-def play_audio_autoplay(audio_bytes, elem_id="hsk_persistent_audio"):
-    b64 = base64.b64encode(audio_bytes).decode()
-    html = f"""
+def render_audio_player(text, label="🔊 ฟังเสียง", autoplay=False):
+    """Speak Mandarin in the browser without a server/network round-trip."""
+    safe_text_js = json.dumps(str(text), ensure_ascii=False)
+    safe_label = html_lib.escape(label)
+    autoplay_js = "true" if autoplay else "false"
+    component_html = f"""
+    <style>
+      html, body {{ margin: 0; padding: 0; background: transparent; font-family: sans-serif; }}
+      .speech-wrap {{ display: flex; align-items: center; gap: 8px; width: 100%; }}
+      button {{
+        width: 100%; min-height: 38px; border-radius: 8px;
+        border: 1px solid rgba(128,128,128,.35); background: transparent;
+        color: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+      }}
+      button:hover {{ border-color: #667eea; background: rgba(102,126,234,.10); }}
+      #status {{ font-size: 11px; color: #888; white-space: nowrap; }}
+    </style>
+    <div class="speech-wrap">
+      <button id="speak" type="button">{safe_label}</button>
+      <span id="status" aria-live="polite"></span>
+    </div>
     <script>
     (function() {{
-        try {{
-            var pdoc = window.parent.document;
-            var audio = pdoc.getElementById('{elem_id}');
-            if (!audio) {{
-                audio = pdoc.createElement('audio');
-                audio.id = '{elem_id}';
-                audio.style.display = 'none';
-                pdoc.body.appendChild(audio);
-            }}
-            audio.src = "data:audio/mp3;base64,{b64}";
-            var p = audio.play();
-            if (p !== undefined) {{
-                p.catch(function(e) {{ console.log('autoplay blocked:', e); }});
-            }}
-        }} catch (e) {{
-            console.log('audio inject error', e);
+      const button = document.getElementById('speak');
+      const status = document.getElementById('status');
+      const text = {safe_text_js};
+
+      function speak() {{
+        if (!('speechSynthesis' in window)) {{
+          status.textContent = 'ไม่รองรับเสียง';
+          return;
         }}
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'zh-CN';
+        utterance.rate = 0.82;
+        const voices = window.speechSynthesis.getVoices();
+        const voice = voices.find(v => v.lang.toLowerCase() === 'zh-cn')
+          || voices.find(v => v.lang.toLowerCase().startsWith('zh'));
+        if (voice) utterance.voice = voice;
+        utterance.onstart = () => {{ status.textContent = 'กำลังเล่น'; }};
+        utterance.onend = () => {{ status.textContent = ''; }};
+        utterance.onerror = () => {{ status.textContent = 'กดฟังอีกครั้ง'; }};
+        window.speechSynthesis.speak(utterance);
+      }}
+
+      button.addEventListener('click', speak);
+      if ({autoplay_js}) window.setTimeout(speak, 120);
     }})();
     </script>
     """
-    components.html(html, height=0, width=0)
+    components.html(component_html, height=46, scrolling=False)
+
+
+_SENSE_MARKER_RE = re.compile(r"(?<=[\u3400-\u9fff])[12]$")
+
+
+def display_word_text(value):
+    """Show official sense markers as superscripts instead of ordinary digits."""
+    text = str(value or "").strip()
+    return _SENSE_MARKER_RE.sub(lambda m: "¹" if m.group(0) == "1" else "²", text)
+
+
+def spoken_word_text(value):
+    """Remove official sense markers before speech or external translation."""
+    return _SENSE_MARKER_RE.sub("", str(value or "").strip())
 
 
 def normalize_level(level):
@@ -503,6 +497,18 @@ def split_level_label(level):
 
     label = f"{primary} {extra}".strip() if extra else primary
     return primary, extra, label
+
+
+def extract_level_memberships(level):
+    """Return every HSK level encoded in labels such as ``1(2)(4)``."""
+    raw = str(level).strip()
+    parts = [raw.split("(")[0]] + re.findall(r"\(([^)]+)\)", raw)
+    memberships = []
+    for part in parts:
+        normalized = normalize_level(part)
+        if normalized in HSK_LEVELS and normalized not in memberships:
+            memberships.append(normalized)
+    return tuple(memberships)
 
 
 def strip_tones(text):
@@ -759,6 +765,21 @@ def _render_user_identification_page():
     with col2:
         st.markdown("### 👤 ระบุตัวตนของคุณ")
 
+        start_level = st.selectbox(
+            "เริ่มเรียนที่ระดับ",
+            HSK_LEVELS,
+            index=0,
+            format_func=lambda level: f"HSK {level}",
+            key="id_start_level",
+        )
+        st.caption("เปลี่ยนหรือเลือกหลายระดับเพิ่มได้ภายหลังในแถบด้านข้าง")
+
+        def _enter_player(name):
+            st.session_state.player_name = name
+            st.session_state.level_filter = {level: level == start_level for level in HSK_LEVELS}
+            for level in HSK_LEVELS:
+                st.session_state[f"lv_{level}"] = level == start_level
+
         history = st.session_state.get("player_name_history", [])
         if history:
             st.markdown("**เลือกชื่อที่เคยใช้:**")
@@ -766,8 +787,8 @@ def _render_user_identification_page():
             hist_cols = st.columns(len(recent))
             for i, name in enumerate(recent):
                 with hist_cols[i]:
-                    if st.button(f"👤 {name}", key=f"id_hist_{i}", use_container_width=True):
-                        st.session_state.player_name = name
+                    if st.button(f"👤 {name}", key=f"id_hist_{i}", width="stretch"):
+                        _enter_player(name)
                         st.rerun()
             st.markdown("---")
 
@@ -780,18 +801,18 @@ def _render_user_identification_page():
 
         col_a, col_b = st.columns(2)
         with col_a:
-            if st.button("✅ เข้าใช้งาน", type="primary", use_container_width=True, key="id_enter_btn"):
+            if st.button("✅ เข้าใช้งาน", type="primary", width="stretch", key="id_enter_btn"):
                 name = new_name.strip()
                 if name:
-                    st.session_state.player_name = name
+                    _enter_player(name)
                     if name not in st.session_state.player_name_history:
                         st.session_state.player_name_history.append(name)
                     st.rerun()
                 else:
                     st.warning("กรุณากรอกชื่อก่อนเข้าใช้งาน")
         with col_b:
-            if st.button("🎭 ไม่ระบุตัวตน", use_container_width=True, key="id_anon_btn"):
-                st.session_state.player_name = "Guest"
+            if st.button("🎭 ไม่ระบุตัวตน", width="stretch", key="id_anon_btn"):
+                _enter_player("Guest")
                 st.rerun()
 
         st.markdown("""
@@ -805,11 +826,41 @@ if not st.session_state.get("player_name"):
     _render_user_identification_page()
     st.stop()
 
+
+def _activate_player_context(force=False):
+    """Load only the active player's private history into this session."""
+    name = _current_player_name()
+    if not force and st.session_state.get("_active_player_context") == name:
+        return
+
+    players = st.session_state.get("players_data", {})
+    profile = dict(players.get(name, {}))
+    legacy_history = st.session_state.get("play_history", [])
+    own_history = profile.get("history")
+    if not isinstance(own_history, list):
+        own_history = [h for h in legacy_history if h.get("ผู้เล่น") == name]
+
+    profile.setdefault("correct", 0)
+    profile.setdefault("total", 0)
+    profile.setdefault("last_active", None)
+    profile.setdefault("leaderboard_visible", True)
+    profile["history"] = own_history[-MAX_HISTORY:]
+    players[name] = profile
+
+    st.session_state.players_data = players
+    st.session_state.play_history = profile["history"]
+    st.session_state.remembered = []
+    st.session_state.forgotten = []
+    st.session_state._active_player_context = name
+
+
+_activate_player_context()
+
 st.title("🇨🇳 HSK Flashcard Intelligence")
 
 st.sidebar.markdown('<div class="sidebar-section-title">🙋 ผู้เล่น</div>', unsafe_allow_html=True)
 st.sidebar.markdown(f"**👤 {_current_player_name()}**")
-if st.sidebar.button("🔄 เปลี่ยนผู้ใช้", use_container_width=True, key="switch_player_btn"):
+if st.sidebar.button("🔄 เปลี่ยนผู้ใช้", width="stretch", key="switch_player_btn"):
     st.session_state.player_name = ""
     st.rerun()
 
@@ -954,6 +1005,7 @@ def _prepare_vocab_df(df_in):
     df_in['hsk_level'] = _split.apply(lambda t: t[0])
     df_in['hsk_level_extra'] = _split.apply(lambda t: t[1])
     df_in['hsk_level_label'] = _split.apply(lambda t: t[2])
+    df_in['hsk_levels'] = df_in['hsk_level_raw'].apply(extract_level_memberships)
 
     _pinyin_col_for_precompute = None
     for _candidate in ("pinyin",):
@@ -1036,13 +1088,15 @@ if "level_filter" not in st.session_state:
 
 with st.sidebar.expander("📊 เลือกเลเวล HSK", expanded=True):
     for i, lvl in enumerate(HSK_LEVELS):
+        widget_key = f"lv_{lvl}"
+        if widget_key not in st.session_state:
+            st.session_state[widget_key] = st.session_state.level_filter.get(lvl, False)
         if i % 2 == 0:
             c1, c2 = st.columns(2)
         with (c1 if i % 2 == 0 else c2):
             st.session_state.level_filter[lvl] = st.checkbox(
                 f"HSK {lvl}",
-                st.session_state.level_filter.get(lvl, True),
-                key=f"lv_{lvl}",
+                key=widget_key,
             )
 
 word_col = st.session_state.col_mapping.get("word", "word")
@@ -1138,7 +1192,7 @@ def _show_search_preview_dialog(results_df):
             unsafe_allow_html=True,
         )
     st.divider()
-    if st.button("✕ ปิดหน้าต่างนี้", use_container_width=True, key="close_search_dialog_btn", type="primary"):
+    if st.button("✕ ปิดหน้าต่างนี้", width="stretch", key="close_search_dialog_btn", type="primary"):
         st.rerun()
 
 
@@ -1167,7 +1221,7 @@ if query:
     st.sidebar.caption(f"พบ {len(search_results_df)} คำ")
 
     if len(search_results_df) > 0:
-        if st.sidebar.button("🔍 ดูตัวอย่างขยายเต็มจอ", use_container_width=True, key="open_search_preview_dialog"):
+        if st.sidebar.button("🔍 ดูตัวอย่างขยายเต็มจอ", width="stretch", key="open_search_preview_dialog"):
             _show_search_preview_dialog(search_results_df)
 
     PREVIEW_SHOWN = 5
@@ -1190,7 +1244,7 @@ if query:
                 f'</div>',
                 unsafe_allow_html=True,
             )
-            if st.sidebar.button("📖 ไปดูในหน้าคำศัพท์", key=f"goto_vocab_{rid}_{w}", use_container_width=True):
+            if st.sidebar.button("📖 ไปดูในหน้าคำศัพท์", key=f"goto_vocab_{rid}_{w}", width="stretch"):
                 st.session_state.vocab_search_prefill = str(w)
                 st.session_state.active_tab_radio = "📖 คำศัพท์"
                 st.rerun()
@@ -1228,15 +1282,16 @@ with st.sidebar.expander("📂 แหล่งข้อมูล", expanded=Fals
 
 st.sidebar.markdown('<div class="sidebar-section-title">⚙️ ตั้งค่า</div>', unsafe_allow_html=True)
 
-levels_data = set(df['hsk_level'].unique())
+levels_data = {level for memberships in df["hsk_levels"] for level in memberships}
 selected_levels = [l for l in HSK_LEVELS if st.session_state.level_filter.get(l) and l in levels_data]
-filtered_df = df[df['hsk_level'].isin(selected_levels)] if selected_levels else df.iloc[0:0]
+_selected_level_set = set(selected_levels)
+filtered_df = df[df["hsk_levels"].apply(lambda memberships: bool(_selected_level_set.intersection(memberships)))] if selected_levels else df.iloc[0:0]
 
 if "audio_enabled" not in st.session_state:
     st.session_state.audio_enabled = True
 
 audio_label = ("🔊 เสียงเปิด" if st.session_state.audio_enabled else "🔇 เสียงปิด")
-if st.sidebar.button(audio_label, use_container_width=True, key="audio_sidebar_btn"):
+if st.sidebar.button(audio_label, width="stretch", key="audio_sidebar_btn"):
     st.session_state.audio_enabled = not st.session_state.audio_enabled
     st.rerun()
 
@@ -1244,13 +1299,13 @@ if "ai_panel_open" not in st.session_state:
     st.session_state.ai_panel_open = True
 
 ai_label = ("🤖 AI เปิด" if st.session_state.ai_panel_open else "🤖 AI ปิด")
-if st.sidebar.button(ai_label, use_container_width=True, key="ai_sidebar_btn"):
+if st.sidebar.button(ai_label, width="stretch", key="ai_sidebar_btn"):
     st.session_state.ai_panel_open = not st.session_state.ai_panel_open
     st.rerun()
 
 if "quiz_auto_next" not in st.session_state:
     st.session_state.quiz_auto_next = True
-st.sidebar.checkbox("เลื่อนไปข้อถัดไปอัตโนมัติเมื่อตอบ", value=st.session_state.get("quiz_auto_next", True), key="quiz_auto_next")
+st.sidebar.checkbox("เลื่อนไปข้อถัดไปอัตโนมัติเมื่อตอบ", key="quiz_auto_next")
 
 if st.session_state.quiz_auto_next:
     if "quiz_auto_next_seconds" not in st.session_state:
@@ -1267,8 +1322,9 @@ if _backend == "gsheet":
 else:
     st.sidebar.caption("💾 บันทึกในเครื่อง (หายเมื่อแอป redeploy/reboot)")
 
-if st.session_state.get("_gsheet_error"):
-    st.sidebar.caption(f"⚠️ Google Sheets: {st.session_state['_gsheet_error']}")
+_gsheet_error = st.session_state.get("_gsheet_error", "")
+if _gsheet_error and not str(_gsheet_error).startswith("No secrets found"):
+    st.sidebar.caption(f"⚠️ Google Sheets: {_gsheet_error}")
 
 _srs_now = pd.Timestamp.now()
 _due_count = 0
@@ -1284,25 +1340,32 @@ if "confirm_reset_progress" not in st.session_state:
     st.session_state.confirm_reset_progress = False
 
 if not st.session_state.confirm_reset_progress:
-    if st.sidebar.button("🗑️ ล้างความคืบหน้าทั้งหมดของผู้เล่นปัจจุบัน", use_container_width=True, key="reset_progress_btn"):
+    if st.sidebar.button("🗑️ ล้างความคืบหน้าทั้งหมดของผู้เล่นปัจจุบัน", width="stretch", key="reset_progress_btn"):
         st.session_state.confirm_reset_progress = True
         st.rerun()
 else:
     st.sidebar.warning(f"ล้างข้อมูล SRS + ประวัติ + คะแนน เฉพาะของ '{_current_player_name()}' เท่านั้น (ไม่กระทบผู้เล่นคนอื่น)? กู้คืนไม่ได้")
     rc1, rc2 = st.sidebar.columns(2)
     with rc1:
-        if st.button("✅ ยืนยัน", use_container_width=True, key="reset_progress_confirm"):
+        if st.button("✅ ยืนยัน", width="stretch", key="reset_progress_confirm"):
             name = _current_player_name()
-            st.session_state.srs_data.pop(name, None)
-            st.session_state.play_history = [h for h in st.session_state.play_history if h.get('ผู้เล่น') != name]
-            st.session_state.remembered = [r for r in st.session_state.remembered if r.get('ผู้เล่น') != name]
-            st.session_state.forgotten = [f for f in st.session_state.forgotten if f.get('ผู้เล่น') != name]
-            st.session_state.players_data.pop(name, None)
+            was_visible = st.session_state.players_data.get(name, {}).get("leaderboard_visible", True)
+            st.session_state.srs_data[name] = {}
+            st.session_state.play_history = []
+            st.session_state.remembered = []
+            st.session_state.forgotten = []
+            st.session_state.players_data[name] = {
+                "correct": 0,
+                "total": 0,
+                "last_active": None,
+                "leaderboard_visible": was_visible,
+                "history": [],
+            }
             _save_progress(force_gsheet_sync=True)
             st.session_state.confirm_reset_progress = False
             st.rerun()
     with rc2:
-        if st.button("✕ ยกเลิก", use_container_width=True, key="reset_progress_cancel"):
+        if st.button("✕ ยกเลิก", width="stretch", key="reset_progress_cancel"):
             st.session_state.confirm_reset_progress = False
             st.rerun()
 
@@ -1318,9 +1381,13 @@ if active_tab_choice == "🎴 Flashcard":
     if filtered_df.empty:
         st.warning("⚠️ ไม่มีคำในเลเวลที่เลือก")
     else:
-        if 'current_word' not in st.session_state or st.session_state.get('current_word_level') not in selected_levels:
+        if (
+            'current_word' not in st.session_state
+            or not _selected_level_set.intersection(st.session_state.get('current_word_levels', ()))
+        ):
             st.session_state.current_word = pick_srs_word(filtered_df)
             st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
+            st.session_state.current_word_levels = tuple(st.session_state.current_word.get("hsk_levels", (st.session_state.current_word_level,)))
             st.session_state.card_flipped = False
             st.session_state._last_flip_component_value = None
             st.session_state.flip_generation = st.session_state.get('flip_generation', 0) + 1
@@ -1362,6 +1429,7 @@ if active_tab_choice == "🎴 Flashcard":
             prev_id = w.get('id')
             st.session_state.current_word = pick_srs_word(filtered_df, exclude_id=prev_id)
             st.session_state.current_word_level = str(st.session_state.current_word['hsk_level'])
+            st.session_state.current_word_levels = tuple(st.session_state.current_word.get("hsk_levels", (st.session_state.current_word_level,)))
             st.session_state.card_flipped = False
             st.session_state._last_flip_component_value = None
             st.session_state.audio_played = False
@@ -1373,15 +1441,6 @@ if active_tab_choice == "🎴 Flashcard":
             st.session_state.card_translate_result = None
             st.session_state.card_translate_word = None
             st.session_state.flip_generation = st.session_state.get('flip_generation', 0) + 1
-
-        if st.session_state.audio_enabled and not st.session_state.audio_played:
-            try:
-                current_word_text = st.session_state.current_word[word_col] if word_col else st.session_state.current_word['word']
-                audio_fp = speak_word(current_word_text)
-                st.audio(audio_fp.getvalue(), format="audio/mp3", autoplay=True)
-                st.session_state.audio_played = True
-            except Exception:
-                pass
 
         if st.session_state.ai_panel_open:
             col_left, col_right = st.columns([0.6, 0.4], gap="large")
@@ -1398,7 +1457,9 @@ if active_tab_choice == "🎴 Flashcard":
 
             flipped_class = "flipped" if st.session_state.card_flipped else ""
             colors = get_hsk_color(st.session_state.current_word['hsk_level'])
-            current_word_text = st.session_state.current_word[word_col] if word_col else st.session_state.current_word['word']
+            current_word_raw = st.session_state.current_word[word_col] if word_col else st.session_state.current_word['word']
+            current_word_text = display_word_text(current_word_raw)
+            current_word_spoken = spoken_word_text(current_word_raw)
             flip_gen = st.session_state.get('flip_generation', 0)
             current_hsk_label = st.session_state.current_word.get(
                 'hsk_level_label', st.session_state.current_word['hsk_level']
@@ -1454,37 +1515,41 @@ if active_tab_choice == "🎴 Flashcard":
                 """,
                 unsafe_allow_html=True,
             )
-            if st.button("แตะเพื่อพลิกการ์ด", key="flip_overlay_btn", use_container_width=True):
+            if st.button("แตะเพื่อพลิกการ์ด", key="flip_overlay_btn", width="stretch"):
                 st.session_state.card_flipped = not st.session_state.card_flipped
                 st.rerun()
 
-            if st.button("🔄 พลิกการ์ด (ถ้าแตะกลางการ์ดไม่ได้)", use_container_width=True, key="flip_fallback_btn"):
+            if st.button("🔄 พลิกการ์ด (ถ้าแตะกลางการ์ดไม่ได้)", width="stretch", key="flip_fallback_btn"):
                 st.session_state.card_flipped = not st.session_state.card_flipped
                 st.rerun()
 
             r1, r2 = st.columns(2)
             with r1:
-                if st.button("✅ จำได้", use_container_width=True, key="remember_btn"):
+                if st.button("✅ จำได้", width="stretch", key="remember_btn"):
                     next_word("remembered")
                     st.rerun()
             with r2:
-                if st.button("❌ จำไม่ได้", use_container_width=True, key="forget_btn"):
+                if st.button("❌ จำไม่ได้", width="stretch", key="forget_btn"):
                     next_word("forgotten")
                     st.rerun()
 
             b1, b2, b3 = st.columns(3)
             with b1:
-                if st.button("🔊 ฟังเสียง", use_container_width=True, key="replay_btn"):
-                    current_word_text = st.session_state.current_word[word_col] if word_col else st.session_state.current_word['word']
-                    audio_fp = speak_word(current_word_text)
-                    st.audio(audio_fp.getvalue(), format="audio/mp3", autoplay=True)
+                if st.session_state.audio_enabled:
+                    try:
+                        render_audio_player(current_word_spoken, "🔊 ฟังเสียง", autoplay=False)
+                        st.session_state.audio_played = True
+                    except Exception as e:
+                        st.caption(f"⚠️ เสียงไม่พร้อม: {e}")
+                else:
+                    st.caption("🔇 เสียงปิดอยู่")
             with b2:
-                if st.button("⏭️ ข้าม", use_container_width=True, key="skip_btn"):
+                if st.button("⏭️ ข้าม", width="stretch", key="skip_btn"):
                     next_word(None)
                     st.rerun()
             with b3:
                 audio_txt = "🔇 ปิด" if st.session_state.audio_enabled else "🔊 เปิด"
-                if st.button(audio_txt, use_container_width=True, key="audio_card_btn"):
+                if st.button(audio_txt, width="stretch", key="audio_card_btn"):
                     st.session_state.audio_enabled = not st.session_state.audio_enabled
                     st.rerun()
 
@@ -1523,7 +1588,9 @@ if active_tab_choice == "🎴 Flashcard":
                 reveal_hint = "🔓 เฉลยแล้ว" if effective_reveal else "🔒 ยังไม่เฉลย (พลิกการ์ดเพื่อดู)"
                 st.markdown(f"**คำศัพท์:**  \n:gray[{reveal_hint}]")
 
-                current_word_text = st.session_state.current_word[word_col] if word_col else st.session_state.current_word['word']
+                current_word_raw = st.session_state.current_word[word_col] if word_col else st.session_state.current_word['word']
+                current_word_text = display_word_text(current_word_raw)
+                current_word_spoken = spoken_word_text(current_word_raw)
                 pinyin_text = st.session_state.current_word.get(pinyin_col, st.session_state.current_word.get('pinyin', ''))
                 meaning_text = st.session_state.current_word.get(trans_th_col, st.session_state.current_word.get('trans_th', ''))
 
@@ -1565,9 +1632,9 @@ if active_tab_choice == "🎴 Flashcard":
                 st.divider()
                 st.markdown("**🔠 แปลคำนี้:**")
 
-                if st.button("🤖 MyMemory (แปลทันที)", use_container_width=True, key="mymemory_card_btn"):
+                if st.button("🤖 MyMemory (แปลทันที)", width="stretch", key="mymemory_card_btn"):
                     with st.spinner("กำลังแปล..."):
-                        trans = free_translate(current_word_text, "zh-CN", "th")
+                        trans = free_translate(current_word_spoken, "zh-CN", "th")
                     if trans:
                         st.session_state.card_translate_result = f"**{current_word_text}** → {trans}"
                     else:
@@ -1578,14 +1645,14 @@ if active_tab_choice == "🎴 Flashcard":
                 if st.session_state.card_translate_result and st.session_state.card_translate_word == current_word_text:
                     st.markdown(f'<div class="translate-result-box">{st.session_state.card_translate_result}</div>', unsafe_allow_html=True)
 
-                g_url = get_google_translate_url(current_word_text)
-                gpt_url = get_chatgpt_translate_url(current_word_text)
+                g_url = get_google_translate_url(current_word_spoken)
+                gpt_url = get_chatgpt_translate_url(current_word_spoken)
 
                 btn_c1, btn_c2 = st.columns(2)
                 with btn_c1:
-                    st.link_button("🌍 Google", g_url, use_container_width=True)
+                    st.link_button("🌍 Google", g_url, width="stretch")
                 with btn_c2:
-                    st.link_button("🧠 ChatGPT", gpt_url, use_container_width=True)
+                    st.link_button("🧠 ChatGPT", gpt_url, width="stretch")
 
                 if st.session_state.ai_response and st.session_state.ai_response_word == current_word_text:
                     st.divider()
@@ -1604,13 +1671,13 @@ elif active_tab_choice == "🎯 Quiz":
 
         qm1, qm2 = st.columns(2)
         with qm1:
-            if st.button("👁️ เห็นคำจีน → เลือกความหมาย", use_container_width=True,
+            if st.button("👁️ เห็นคำจีน → เลือกความหมาย", width="stretch",
                          type="primary" if st.session_state.quiz_mode == "meaning" else "secondary"):
                 st.session_state.quiz_mode = "meaning"
                 st.session_state.quiz_question = None
                 st.rerun()
         with qm2:
-            if st.button("🔊 ฟังเสียง → เลือกคำ", use_container_width=True,
+            if st.button("🔊 ฟังเสียง → เลือกคำ", width="stretch",
                          type="primary" if st.session_state.quiz_mode == "listening" else "secondary"):
                 st.session_state.quiz_mode = "listening"
                 st.session_state.quiz_question = None
@@ -1642,7 +1709,9 @@ elif active_tab_choice == "🎯 Quiz":
             _new_quiz_question()
 
         target = st.session_state.quiz_question
-        target_word = target[word_col] if word_col else target["word"]
+        target_word_raw = target[word_col] if word_col else target["word"]
+        target_word = display_word_text(target_word_raw)
+        target_word_spoken = spoken_word_text(target_word_raw)
         target_meaning = target.get(trans_th_col, target.get("trans_th", ""))
         target_level = target.get("hsk_level_label", target.get("hsk_level", ""))
 
@@ -1671,25 +1740,15 @@ elif active_tab_choice == "🎯 Quiz":
                 str(opt.get(trans_th_col, opt.get("trans_th", ""))) for opt in st.session_state.quiz_options
             ]
         else:
-            st.info(f"HSK {target_level} — เสียงจะเล่นให้อัตโนมัติ กดปุ่มด้านล่างถ้าอยากฟังซ้ำ")
-            if st.button("🔊 ฟังเสียงซ้ำ", use_container_width=True, key="quiz_listen_btn"):
-                try:
-                    audio_bytes = speak_word_bytes(target_word)
-                    play_audio_autoplay(audio_bytes)
-                    st.session_state.quiz_audio_played = True
-                except Exception as e:
-                    st.warning(f"ไม่สามารถเล่นเสียงได้: {e}")
-
-            if not st.session_state.quiz_answered and not st.session_state.quiz_audio_played:
-                try:
-                    audio_bytes = speak_word_bytes(target_word)
-                    play_audio_autoplay(audio_bytes)
-                    st.session_state.quiz_audio_played = True
-                except Exception as e:
-                    st.warning(f"ไม่สามารถเล่นเสียงอัตโนมัติได้: {e}")
+            st.info(f"HSK {target_level} — กดปุ่มฟังเสียง แล้วเลือกคำจีนที่ได้ยิน")
+            try:
+                render_audio_player(target_word_spoken, "🔊 ฟังเสียงซ้ำ", autoplay=False)
+                st.session_state.quiz_audio_played = True
+            except Exception as e:
+                st.warning(f"ไม่สามารถโหลดเสียงได้: {e}")
             st.markdown("**เลือกคำจีนที่ได้ยิน:**")
             option_labels = [
-                str(opt[word_col] if word_col else opt["word"]) for opt in st.session_state.quiz_options
+                display_word_text(opt[word_col] if word_col else opt["word"]) for opt in st.session_state.quiz_options
             ]
 
         for i, opt in enumerate(st.session_state.quiz_options):
@@ -1705,7 +1764,7 @@ elif active_tab_choice == "🎯 Quiz":
                 elif st.session_state.quiz_selected == opt["id"]:
                     suffix = " ❌"
 
-            if st.button(f"{label}{suffix}", use_container_width=True, key=f"quiz_opt_{i}_{opt['id']}",
+            if st.button(f"{label}{suffix}", width="stretch", key=f"quiz_opt_{i}_{opt['id']}",
                          disabled=st.session_state.quiz_answered, type=btn_type):
                 st.session_state.quiz_answered = True
                 st.session_state.quiz_selected = opt["id"]
@@ -1714,7 +1773,6 @@ elif active_tab_choice == "🎯 Quiz":
                 st.session_state.quiz_score_total += 1
                 if correct:
                     st.session_state.quiz_score_correct += 1
-                _update_srs(target["id"], correct=correct)
                 timestamp = datetime.now().strftime("%H:%M:%S")
                 st.session_state.play_history.append({
                     "เวลา": timestamp,
@@ -1727,6 +1785,9 @@ elif active_tab_choice == "🎯 Quiz":
                     "ผู้เล่น": _current_player_name(),
                     "โหมด": "Quiz",
                 })
+                # Append history before saving SRS so this answer is persisted
+                # in the same Google Sheets update instead of one answer late.
+                _update_srs(target["id"], correct=correct)
                 st.session_state.quiz_auto_advance_pending = st.session_state.get("quiz_auto_next", True)
                 if st.session_state.quiz_auto_advance_pending:
                     st.session_state.quiz_auto_advance_at = time.time() + st.session_state.get("quiz_auto_next_seconds", 2)
@@ -1739,7 +1800,7 @@ elif active_tab_choice == "🎯 Quiz":
                 st.error(f"❌ ยังไม่ถูก — {target_word} แปลว่า {target_meaning}")
                 st.markdown("**📋 เฉลยของทุกตัวเลือก:**")
                 for i, opt in enumerate(st.session_state.quiz_options):
-                    opt_word = opt[word_col] if word_col else opt["word"]
+                    opt_word = display_word_text(opt[word_col] if word_col else opt["word"])
                     opt_meaning = opt.get(trans_th_col, opt.get("trans_th", ""))
                     is_target = (opt["id"] == target["id"])
                     is_selected = (st.session_state.quiz_selected == opt["id"])
@@ -1750,11 +1811,11 @@ elif active_tab_choice == "🎯 Quiz":
                 st.caption("⏳ กำลังไปข้อถัดไปอัตโนมัติ...")
                 if st_autorefresh is not None:
                     st_autorefresh(interval=300, key="quiz_wait_tick")
-                if st.button("⏭️ ข้ามการรอ / ข้อถัดไปทันที", use_container_width=True, key="quiz_skip_wait_btn"):
+                if st.button("⏭️ ข้ามการรอ / ข้อถัดไปทันที", width="stretch", key="quiz_skip_wait_btn"):
                     _new_quiz_question(exclude_id=target.get("id"))
                     st.rerun()
             else:
-                if st.button("➡️ ข้อถัดไป", use_container_width=True, key="quiz_next_btn"):
+                if st.button("➡️ ข้อถัดไป", width="stretch", key="quiz_next_btn"):
                     _new_quiz_question(exclude_id=target.get("id"))
                     st.rerun()
 
@@ -1768,7 +1829,7 @@ elif active_tab_choice == "📖 คำศัพท์":
 
         vocab_search_col1, vocab_search_col2 = st.columns([0.75, 0.25])
         with vocab_search_col2:
-            if st.button("✕ ล้าง", use_container_width=True, key="vocab_search_clear"):
+            if st.button("✕ ล้าง", width="stretch", key="vocab_search_clear"):
                 st.session_state.vocab_search_clear_flag = True
                 st.session_state.vocab_search_prefill = None
                 st.rerun()
@@ -1843,11 +1904,11 @@ elif active_tab_choice == "📖 คำศัพท์":
         if total_pages > 0 and total_items > 0:
             col_pg1, col_pg2, col_pg3, col_pg4, col_pg5 = st.columns([0.2, 0.2, 0.15, 0.2, 0.25])
             with col_pg1:
-                if st.button("⬅️ ก่อนหน้า", use_container_width=True, key="prev_page"):
+                if st.button("⬅️ ก่อนหน้า", width="stretch", key="prev_page"):
                     st.session_state.vocab_page = max(1, st.session_state.vocab_page - 1)
                     st.rerun()
             with col_pg2:
-                if st.button("ถัดไป ➡️", use_container_width=True, key="next_page"):
+                if st.button("ถัดไป ➡️", width="stretch", key="next_page"):
                     st.session_state.vocab_page = min(total_pages, st.session_state.vocab_page + 1)
                     st.rerun()
             with col_pg3:
@@ -1878,7 +1939,7 @@ elif active_tab_choice == "📖 คำศัพท์":
 
             selection = st.dataframe(
                 display_page_df[show_cols],
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
                 on_select="rerun",
                 selection_mode="single-row",
@@ -1940,7 +2001,7 @@ elif active_tab_choice == "📖 คำศัพท์":
                 tr_b1, tr_b2, tr_b3 = st.columns(3)
 
                 with tr_b1:
-                    if st.button("🤖 MyMemory", use_container_width=True, key="vocab_mymemory_btn"):
+                    if st.button("🤖 MyMemory", width="stretch", key="vocab_mymemory_btn"):
                         with st.spinner("กำลังแปล..."):
                             trans = free_translate(word_to_translate, "zh-CN", "th")
                         if trans:
@@ -1952,11 +2013,11 @@ elif active_tab_choice == "📖 คำศัพท์":
 
                 with tr_b2:
                     g_url = get_google_translate_url(word_to_translate)
-                    st.link_button("🌍 Google", g_url, use_container_width=True)
+                    st.link_button("🌍 Google", g_url, width="stretch")
 
                 with tr_b3:
                     gpt_url = get_chatgpt_translate_url(word_to_translate)
-                    st.link_button("🧠 ChatGPT", gpt_url, use_container_width=True)
+                    st.link_button("🧠 ChatGPT", gpt_url, width="stretch")
 
                 if st.session_state.get("vocab_translate_result") and st.session_state.get("vocab_translate_target") == word_to_translate:
                     st.markdown(f'<div class="translate-result-box">{st.session_state["vocab_translate_result"]}</div>', unsafe_allow_html=True)
@@ -1972,90 +2033,142 @@ elif active_tab_choice == "📖 คำศัพท์":
         st.info("ไม่มีคำในเลเวลที่เลือก")
 
 elif active_tab_choice == "📋 ประวัติ":
-    lb_col1, lb_col2 = st.columns([0.7, 0.3])
-    with lb_col1:
-        st.markdown("### 🏆 Leaderboard")
-    with lb_col2:
-        if st.button("🔄 รีเฟรชคะแนนล่าสุด", use_container_width=True, key="refresh_leaderboard_btn"):
-            _fresh = _load_progress()
-            st.session_state.players_data = _fresh.get("players", {})
-            st.session_state.srs_data = _fresh.get("srs", {})
-            st.session_state.play_history = _fresh.get("history", [])
-            st.rerun()
+    def _empty_board():
+        return pd.DataFrame(columns=["อันดับ", "ผู้เล่น", "ตอบถูก", "ตอบทั้งหมด", "ความแม่นยำ (%)"])
+
+    def _add_rank(board):
+        if board.empty:
+            return _empty_board()
+        board = board.sort_values(
+            by=["ตอบถูก", "ความแม่นยำ (%)", "ตอบทั้งหมด"],
+            ascending=[False, False, False],
+        ).reset_index(drop=True)
+        medals = ["🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else str(i + 1) for i in range(len(board))]
+        board.insert(0, "อันดับ", medals)
+        return board
+
+    def _public_players(players_dict):
+        return {
+            name: p for name, p in players_dict.items()
+            if name != "Guest" and p.get("leaderboard_visible", True) and p.get("total", 0) > 0
+        }
 
     def _build_board_from_players(players_dict):
         rows = []
-        for name, p in players_dict.items():
-            total = p.get("total", 0)
-            correct = p.get("correct", 0)
-            acc = round(correct / total * 100, 1) if total else 0.0
+        for name, p in _public_players(players_dict).items():
+            total = int(p.get("total", 0) or 0)
+            correct = int(p.get("correct", 0) or 0)
             rows.append({
                 "ผู้เล่น": name,
                 "ตอบถูก": correct,
                 "ตอบทั้งหมด": total,
-                "ความแม่นยำ (%)": acc,
+                "ความแม่นยำ (%)": round(correct / total * 100, 1) if total else 0.0,
             })
-        if not rows:
-            return pd.DataFrame(columns=["อันดับ", "ผู้เล่น", "ตอบถูก", "ตอบทั้งหมด", "ความแม่นยำ (%)"])
-        b = pd.DataFrame(rows).sort_values(by=["ความแม่นยำ (%)", "ตอบถูก"], ascending=[False, False]).reset_index(drop=True)
-        b.insert(0, "อันดับ", [f"🥇" if i == 0 else f"🥈" if i == 1 else f"🥉" if i == 2 else str(i + 1) for i in range(len(b))])
-        return b
+        return _add_rank(pd.DataFrame(rows)) if rows else _empty_board()
 
-    def _build_board_from_history(hist_list, mode):
-        if not hist_list:
-            return pd.DataFrame(columns=["อันดับ", "ผู้เล่น", "ตอบถูก", "ตอบทั้งหมด", "ความแม่นยำ (%)"])
-        df_hist = pd.DataFrame(hist_list)
-        if "โหมด" not in df_hist.columns:
-            return pd.DataFrame(columns=["อันดับ", "ผู้เล่น", "ตอบถูก", "ตอบทั้งหมด", "ความแม่นยำ (%)"])
-        df_mode = df_hist[df_hist["โหมด"] == mode]
-        if df_mode.empty or "ผู้เล่น" not in df_mode.columns:
-            return pd.DataFrame(columns=["อันดับ", "ผู้เล่น", "ตอบถูก", "ตอบทั้งหมด", "ความแม่นยำ (%)"])
-        agg = df_mode.groupby("ผู้เล่น").agg(
-            ตอบถูก=("ผล", lambda s: (s == "✅ จำได้").sum()),
-            ตอบทั้งหมด=("ผล", "count"),
-        ).reset_index()
-        if agg.empty:
-            return pd.DataFrame(columns=["อันดับ", "ผู้เล่น", "ตอบถูก", "ตอบทั้งหมด", "ความแม่นยำ (%)"])
-        agg["ความแม่นยำ (%)"] = (agg["ตอบถูก"] / agg["ตอบทั้งหมด"] * 100).round(1)
-        agg = agg.sort_values(by=["ความแม่นยำ (%)", "ตอบถูก"], ascending=[False, False]).reset_index(drop=True)
-        agg.insert(0, "อันดับ", [f"🥇" if i == 0 else f"🥈" if i == 1 else f"🥉" if i == 2 else str(i + 1) for i in range(len(agg))])
-        return agg
+    def _build_mode_board(players_dict, mode):
+        rows = []
+        for name, p in _public_players(players_dict).items():
+            mode_history = [h for h in p.get("history", []) if h.get("โหมด") == mode]
+            if not mode_history:
+                continue
+            total = len(mode_history)
+            correct = sum(h.get("ผล") == "✅ จำได้" for h in mode_history)
+            rows.append({
+                "ผู้เล่น": name,
+                "ตอบถูก": correct,
+                "ตอบทั้งหมด": total,
+                "ความแม่นยำ (%)": round(correct / total * 100, 1) if total else 0.0,
+            })
+        return _add_rank(pd.DataFrame(rows)) if rows else _empty_board()
 
     me = _current_player_name()
     players = st.session_state.get("players_data", {})
-    board_all = _build_board_from_players(players)
-    if not board_all.empty:
-        board_all_display = board_all.copy()
-        board_all_display["ผู้เล่น"] = board_all_display["ผู้เล่น"].apply(lambda n: f"⭐ {n} (คุณ)" if n == me else n)
-        st.dataframe(board_all_display, use_container_width=True, hide_index=True)
+    my_profile = dict(players.get(me, {}))
+    my_profile.setdefault("leaderboard_visible", True)
+    my_profile.setdefault("history", st.session_state.get("play_history", []))
+    players[me] = my_profile
+    st.session_state.players_data = players
+
+    history_sync_marker = (
+        me,
+        int(my_profile.get("correct", 0) or 0),
+        int(my_profile.get("total", 0) or 0),
+        len(st.session_state.get("play_history", [])),
+    )
+    if st.session_state.get("_history_sync_marker") != history_sync_marker:
+        _save_progress(force_gsheet_sync=True)
+        st.session_state._history_sync_marker = history_sync_marker
+
+    st.markdown("### 🔐 ความเป็นส่วนตัวของคะแนน")
+    if me == "Guest":
+        st.info("Guest จะไม่ถูกนำชื่อหรือคะแนนขึ้น Leaderboard")
     else:
-        st.info("ยังไม่มีใครเล่นเลย — พิมพ์ชื่อใน sidebar แล้วเริ่มตอบคำถามได้เลย")
+        if st.session_state.get("_visibility_widget_player") != me:
+            st.session_state["leaderboard_visibility_toggle"] = my_profile.get("leaderboard_visible", True)
+            st.session_state["_visibility_widget_player"] = me
+        visibility = st.toggle(
+            "อนุญาตให้เพื่อนเห็นชื่อและคะแนนของฉันบน Leaderboard",
+            key="leaderboard_visibility_toggle",
+        )
+        if visibility != my_profile.get("leaderboard_visible", True):
+            my_profile["leaderboard_visible"] = visibility
+            players[me] = my_profile
+            st.session_state.players_data = players
+            _save_progress(force_gsheet_sync=True)
+            st.toast("แสดงคะแนนแล้ว" if visibility else "ซ่อนคะแนนของคุณแล้ว")
+            st.rerun()
+        if not visibility:
+            st.caption("คะแนนและชื่อของคุณยังเก็บไว้ตามปกติ แต่คนอื่นจะไม่เห็นบน Leaderboard")
+
+    if "show_leaderboard_panel" not in st.session_state:
+        st.session_state.show_leaderboard_panel = True
+
+    lb_col1, lb_col2, lb_col3 = st.columns([0.52, 0.25, 0.23])
+    with lb_col1:
+        st.markdown("### 🏆 Leaderboard")
+    with lb_col2:
+        if st.button("🔄 รีเฟรช", width="stretch", key="refresh_leaderboard_btn"):
+            _fresh = _load_progress()
+            st.session_state.players_data = _fresh.get("players", {})
+            st.session_state.srs_data = _fresh.get("srs", {})
+            st.session_state._active_player_context = None
+            _activate_player_context(force=True)
+            st.rerun()
+    with lb_col3:
+        panel_label = "✕ ปิดตาราง" if st.session_state.show_leaderboard_panel else "🏆 เปิดตาราง"
+        if st.button(panel_label, width="stretch", key="toggle_leaderboard_panel_btn"):
+            st.session_state.show_leaderboard_panel = not st.session_state.show_leaderboard_panel
+            st.rerun()
+
+    if st.session_state.show_leaderboard_panel:
+        board_all = _build_board_from_players(st.session_state.players_data)
+        if not board_all.empty:
+            board_all_display = board_all.copy()
+            board_all_display["ผู้เล่น"] = board_all_display["ผู้เล่น"].apply(lambda n: f"⭐ {n} (คุณ)" if n == me else n)
+            st.dataframe(board_all_display, width="stretch", hide_index=True)
+            st.caption("เรียงจากจำนวนตอบถูกมากที่สุด แล้วใช้ความแม่นยำเป็นตัวตัดสิน")
+        else:
+            st.info("ยังไม่มีผู้เล่นที่เปิดเผยคะแนนบน Leaderboard")
+
+        lb_left, lb_right = st.columns(2)
+        with lb_left:
+            st.markdown("#### 🎴 Flashcard")
+            board_fc = _build_mode_board(st.session_state.players_data, "Flashcard")
+            if not board_fc.empty:
+                st.dataframe(board_fc, width="stretch", hide_index=True)
+            else:
+                st.caption("ยังไม่มีข้อมูล Flashcard")
+        with lb_right:
+            st.markdown("#### 🎯 Quiz")
+            board_qz = _build_mode_board(st.session_state.players_data, "Quiz")
+            if not board_qz.empty:
+                st.dataframe(board_qz, width="stretch", hide_index=True)
+            else:
+                st.caption("ยังไม่มีข้อมูล Quiz")
 
     st.divider()
-
-    hist = st.session_state.get("play_history", [])
-    lb_left, lb_right = st.columns(2)
-    with lb_left:
-        st.markdown("#### 🎴 Flashcard")
-        board_fc = _build_board_from_history(hist, "Flashcard")
-        if not board_fc.empty:
-            board_fc_display = board_fc.copy()
-            board_fc_display["ผู้เล่น"] = board_fc_display["ผู้เล่น"].apply(lambda n: f"⭐ {n}" if n == me else n)
-            st.dataframe(board_fc_display, use_container_width=True, hide_index=True)
-        else:
-            st.caption("ยังไม่มีข้อมูล Flashcard")
-    with lb_right:
-        st.markdown("#### 🎯 Quiz")
-        board_qz = _build_board_from_history(hist, "Quiz")
-        if not board_qz.empty:
-            board_qz_display = board_qz.copy()
-            board_qz_display["ผู้เล่น"] = board_qz_display["ผู้เล่น"].apply(lambda n: f"⭐ {n}" if n == me else n)
-            st.dataframe(board_qz_display, use_container_width=True, hide_index=True)
-        else:
-            st.caption("ยังไม่มีข้อมูล Quiz")
-
-    st.divider()
-
+    st.markdown("### 📋 ประวัติของฉัน")
     history = st.session_state.get("play_history", [])
     if not history:
         st.info("ยังไม่มีประวัติ")
@@ -2075,16 +2188,18 @@ elif active_tab_choice == "📋 ประวัติ":
         m4.metric("🎯 %", f"{int(ok/total*100) if total else 0}%")
 
         st.divider()
-        st.dataframe(hist_df, use_container_width=True, hide_index=True, height=400)
+        display_hist_df = hist_df.drop(columns=["ผู้เล่น"], errors="ignore")
+        st.dataframe(display_hist_df, width="stretch", hide_index=True, height=400)
 
         c1, c2 = st.columns([0.3, 0.7])
         with c1:
-            if st.button("🗑️ ล้าง", use_container_width=True, key="clear_btn"):
+            if st.button("🗑️ ล้าง", width="stretch", key="clear_btn"):
                 if hist_mode == "ทั้งหมด":
                     st.session_state.play_history = []
                 else:
                     st.session_state.play_history = [h for h in st.session_state.play_history if h.get("โหมด") != hist_mode]
+                _save_progress(force_gsheet_sync=True)
                 st.rerun()
         with c2:
-            csv = hist_df.to_csv(index=False).encode('utf-8')
-            st.download_button("⬇️ ดาวน์โหลด (ผลกรองแล้ว)", csv, 'history.csv', 'text/csv', use_container_width=True)
+            csv = display_hist_df.to_csv(index=False).encode('utf-8')
+            st.download_button("⬇️ ดาวน์โหลด (ผลกรองแล้ว)", csv, 'history.csv', 'text/csv', width="stretch")

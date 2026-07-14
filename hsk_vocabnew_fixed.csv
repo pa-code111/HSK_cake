@@ -1,5 +1,5 @@
 id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,example_th,example_en
-1,1,爱,ài,动,v.,กริยา,to love; to be fond of,ชอบ,我爱我的家人。,ฉันรักครอบครัวของฉัน,I love my family.
+1,1,爱,ài,动,v.,กริยา,to love; to be fond of,รัก / ชอบ,我爱我的家人。,ฉันรักครอบครัวของฉัน,I love my family.
 2,1,吧,ba,助,part.,อนุภาค (คำช่วยทางไวยากรณ์),modal particle (suggestion/assumption),(อนุภาคบอกความไม่แน่ใจ / ข้อเสนอ),我们走吧。,เราไปกันเถอะ,Let's go.
 3,1,八,bā,数,num.,ตัวเลข,eight; 8,แปด,我有八本书。,ฉันมีหนังสือแปดเล่ม,I have eight books.
 4,1,爸爸,bàba,名,n.,คำนาม,father,พ่อ,我爸爸是老师。,พ่อของฉันเป็นครู,My father is a teacher.
@@ -43,8 +43,8 @@ id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,examp
 42,1,读,dú,动,v.,กริยา,to read; to study,อ่าน,他每天读书。,เขาอ่านหนังสือทุกวัน,He reads books every day.
 43,1(4),对,duì,形、介、（动、量）,v. / adj. / meas. / prep.,คำคุณศัพท์ / คำบุพบท / 量） / (กริยา),right; correct,ถูกต้อง,你说得对。| 他对我很好。,คุณพูดถูก | เขาดีกับฉันมาก,You are right. | He is very kind to me.
 44,1,对不起,duìbuqǐ,动,v.,กริยา,unworthy; to let down,ขอโทษ,对不起，我来晚了。,ขอโทษ ฉันมาสาย,"I'm sorry, I came late."
-45,1(2),多,duō,形、代、（动、数、,v. / adj. / num. / pron.,คำคุณศัพท์ / คำสรรพนาม / ตัวเลข / (กริยา),many; much,มากมาย,这里有很多人。| 你多大了？,ที่นี่มีคนเยอะมาก | คุณอายุเท่าไหร่?,There are many people here. | How old are you?
-46,1,多少,duōshao,副代）,adv. / pron.,副代）,number; amount,เท่าไหร่,这个多少钱？,อันนี้ราคาเท่าไหร่?,How much does this cost?
+45,1(2),多,duō,形、代、（动、数、副）,v. / adj. / num. / pron. / adv.,คำคุณศัพท์ / คำสรรพนาม / ตัวเลข / คำวิเศษณ์ / (กริยา),many; much,มาก / มากมาย,这里有很多人。| 你多大了？,ที่นี่มีคนเยอะมาก | คุณอายุเท่าไหร่?,There are many people here. | How old are you?
+46,1,多少,duōshao,代,pron.,คำสรรพนาม,how many; how much,เท่าไร / กี่,这个多少钱？,อันนี้ราคาเท่าไร?,How much does this cost?
 47,1,读书,dúshū,动,v.,กริยา,to read a book; to study,อ่าน,我喜欢读书。,ฉันชอบอ่านหนังสือ,I like reading books.
 48,1,二,èr,数,num.,ตัวเลข,two; 2,สอง,我有两个姐姐。,ฉันมีพี่สาวสองคน,I have two older sisters.
 49,1,儿子,érzi,名,n.,คำนาม,son,ลูกชาย,他有一个儿子。,เขามีลูกชายหนึ่งคน,He has one son.
@@ -325,7 +325,7 @@ id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,examp
 324,2(4),从,cóng,介、（副）,prep./adv.,คำบุพบท / (คำวิเศษณ์),from,จาก,我从北京来。| 从明天开始，我要早起。,ฉันมาจากปักกิ่ง | ตั้งแต่พรุ่งนี้ ฉันจะตื่นเช้า,"I come from Beijing. | Starting from tomorrow, I will wake up early."
 325,2,从小,cóngxiǎo,副,adv.,คำวิเศษณ์,from childhood; from a young age,ตั้งแต่เด็ก,他从小就喜欢画画。,เขาชอบวาดรูปตั้งแต่เด็ก,He has liked drawing since childhood.
 326,2,错,cuò,形,adj.,คำคุณศัพท์,mistake; wrong,ผิด,这道题我做错了。,ฉันทำโจทย์ข้อนี้ผิด,I got this question wrong.
-327,2,打,dǎ,动,v.,กริยา,to hit; to play; to make (a call),ตี / เล่น / โทร,他打了我一下。| 我们去打篮球吧。| 我给你打电话。,เขาตีฉันครั้งหนึ่ง | เราไปเล่นบาสฯ กันเถอะ | ฉันจะโทรหาคุณ,He hit me once. | Let's go play basketball. | I will call you.
+327,2,打1,dǎ,动,v.,กริยา,to hit; to play; to make (a call),ตี / เล่น / โทร,他打了我一下。| 我们去打篮球吧。| 我给你打电话。,เขาตีฉันครั้งหนึ่ง | เราไปเล่นบาสฯ กันเถอะ | ฉันจะโทรหาคุณ,He hit me once. | Let's go play basketball. | I will call you.
 328,2,打车,dǎchē,动,v.,กริยา,to take a taxi; to hitch a lift,แท็กซี่,我打车去机场。,ฉันนั่งแท็กซี่ไปสนามบิน,I take a taxi to the airport.
 329,2,打开,dǎkāi,动,v.,กริยา,to open; to show,เปิด,请打开窗户。,กรุณาเปิดหน้าต่าง,Please open the window.
 330,2(7-9),但,dàn,连、（副）,conj.,คำสันธาน / (คำวิเศษณ์),but; however,แต่,他很努力，但成绩不好。,เขาขยันมาก แต่ผลการเรียนไม่ดี,"He works hard, but his grades are not good."
@@ -5436,11 +5436,11 @@ id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,examp
 5435,7-9,坝,bà,名,n.,คำนาม,dam; dike,เขื่อน,这是坝。,นี่คือเขื่อน,This is dam.
 5436,7-9,扒,bā,动,v.,กริยา,to peel; to skin,ขุด,他扒了。,เขาขุดแล้ว,He peels.
 5437,7-9,疤,bā,名,n.,คำนาม,scar; scab,แผลเป็น,这是疤。,นี่คือแผลเป็น,This is scar.
-5438,7-9,把柄,bǎbǐng,名,n.,คำนาม,handle; information that can be used against sb,รับมือ,这是把柄。,นี่คือรับมือ,This is handle.
-5439,7-9,巴不得,bābudé,动,v.,กริยา,to be eager for; to long for,กังวล,他巴不得了。,เขากังวลแล้ว,He be eager for.
-5440,7-9,八成,bāchéng,数量、副,adv. / num. / meas.,ตัวเลข/ลักษณนาม / คำวิเศษณ์,eighty percent; most probably,80% / (most probably),请给我一八成。,กรุณาให้ฉันหนึ่ง80%,Please give me one eighty percent.
-5441,7-9,霸道,bàdào,形,adj.,คำคุณศัพท์,the Way of the Hegemon,เอาแต่ใจ,这个很霸道。,อันนี้เอาแต่ใจมาก,This is very the Way of the Hegemon.
-5442,7-9,罢工,bàgōng,动,v.,กริยา,a strike; to go on strike,โจมตี,他罢工了。,เขาโจมตีแล้ว,He a strike.
+5438,7-9,把柄,bǎbǐng,名,n.,คำนาม,handle; information that can be used against somebody,จุดอ่อน / หลักฐานที่ใช้เล่นงานผู้อื่น,他抓住了我的把柄。,เขาได้หลักฐานที่สามารถใช้เล่นงานฉัน,He found something he could use against me.
+5439,7-9,巴不得,bābudé,动,v.,กริยา,to be eager for; to long for,อยาก...ใจจะขาด / ปรารถนาอย่างยิ่ง,我巴不得马上见到他。,ฉันอยากเจอเขาเดี๋ยวนี้ใจจะขาด,I cannot wait to see him.
+5440,7-9,八成,bāchéng,数量、副,adv. / num. / meas.,ตัวเลข/ลักษณนาม / คำวิเศษณ์,eighty percent; most probably,แปดส่วนในสิบ / มีแนวโน้มสูงว่า,这件事八成能办成。,เรื่องนี้มีแนวโน้มสูงว่าจะสำเร็จ,This will most likely succeed.
+5441,7-9,霸道,bàdào,形,adj.,คำคุณศัพท์,overbearing; tyrannical,เอาแต่ใจ / ใช้อำนาจบาตรใหญ่,他说话太霸道了。,เขาพูดแบบใช้อำนาจเกินไป,He speaks too overbearingly.
+5442,7-9,罢工,bàgōng,动,v.,กริยา,a strike; to go on strike,นัดหยุดงาน,工人决定罢工。,คนงานตัดสินใจนัดหยุดงาน,The workers decided to go on strike.
 5443,7-9,八卦,bāguà,名、形,n. / adj.,คำนาม / คำคุณศัพท์,the eight trigrams; gossip,ปาก้วย / นินทา,这个很八卦。,อันนี้ปาก้วยมาก,This is very the eight trigrams.
 5444,7-9,把关,bǎguān,动,v.,กริยา,to guard a pass; to check on sth,ตรวจสอบ,他把关了。,เขาตรวจสอบแล้ว,He guard a pass.
 5445,7-9,掰,bāi,动,v.,กริยา,to break off with hands,หัก / บิ,他掰了。,เขาหักแล้ว,He break off with hands.
