@@ -422,10 +422,10 @@ def render_audio_player(text, label="🔊 ฟังเสียง", autoplay=Fa
       .speech-wrap {{ display: flex; align-items: center; gap: 8px; width: 100%; }}
       button {{
         width: 100%; min-height: 38px; border-radius: 8px;
-        border: 1px solid rgba(128,128,128,.35); background: transparent;
-        color: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+        border: 1px solid #d1d5db; background: #ffffff;
+        color: #111827; font-size: 14px; font-weight: 700; cursor: pointer;
       }}
-      button:hover {{ border-color: #667eea; background: rgba(102,126,234,.10); }}
+      button:hover {{ border-color: #9ca3af; background: #f3f4f6; }}
       #status {{ font-size: 11px; color: #888; white-space: nowrap; }}
     </style>
     <div class="speech-wrap">
@@ -765,20 +765,13 @@ def _render_user_identification_page():
     with col2:
         st.markdown("### 👤 ระบุตัวตนของคุณ")
 
-        start_level = st.selectbox(
-            "เริ่มเรียนที่ระดับ",
-            HSK_LEVELS,
-            index=0,
-            format_func=lambda level: f"HSK {level}",
-            key="id_start_level",
-        )
-        st.caption("เปลี่ยนหรือเลือกหลายระดับเพิ่มได้ภายหลังในแถบด้านข้าง")
+        st.caption("หลังเข้าใช้งาน เลือกระดับ HSK ได้จากแถบด้านข้าง และเลือกได้มากกว่าหนึ่งระดับ")
 
         def _enter_player(name):
             st.session_state.player_name = name
-            st.session_state.level_filter = {level: level == start_level for level in HSK_LEVELS}
+            st.session_state.level_filter = {level: True for level in HSK_LEVELS}
             for level in HSK_LEVELS:
-                st.session_state[f"lv_{level}"] = level == start_level
+                st.session_state[f"lv_{level}"] = True
 
         history = st.session_state.get("player_name_history", [])
         if history:
