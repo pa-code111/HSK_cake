@@ -421,9 +421,11 @@ def render_audio_player(text, label="🔊 ฟังเสียง", autoplay=Fa
       html, body {{ margin: 0; padding: 0; background: transparent; font-family: sans-serif; }}
       .speech-wrap {{ display: flex; align-items: center; gap: 8px; width: 100%; }}
       button {{
-        width: 100%; min-height: 54px; border-radius: 12px;
+        width: 100%; height: 46px; min-height: 46px; box-sizing: border-box;
+        border-radius: 12px; padding: 0 10px;
         border: 1px solid rgba(255,255,255,.22); background: #262a34;
-        color: #ffffff; font-size: 22px; font-weight: 800; cursor: pointer;
+        color: #ffffff; font-size: 18px; font-weight: 700; line-height: 1.1;
+        white-space: nowrap; cursor: pointer;
       }}
       button:hover {{ border-color: #7d8799; background: #323744; }}
       #status {{ font-size: 11px; color: #888; white-space: nowrap; }}
@@ -462,7 +464,7 @@ def render_audio_player(text, label="🔊 ฟังเสียง", autoplay=Fa
     }})();
     </script>
     """
-    components.html(component_html, height=46, scrolling=False)
+    components.html(component_html, height=48, scrolling=False)
 
 
 _SENSE_MARKER_RE = re.compile(r"(?<=[\u3400-\u9fff])[12]$")
