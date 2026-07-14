@@ -22,7 +22,7 @@ except ImportError:
 st.set_page_config(
     page_title="HSK Flashcard AI",
     page_icon="🇨🇳",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="expanded",
 )
 
@@ -423,12 +423,12 @@ def render_audio_player(text, label="🔊 ฟังเสียง", autoplay=Fa
       button {{
         width: 100%; height: 46px; min-height: 46px; box-sizing: border-box;
         border-radius: 12px; padding: 0 10px;
-        border: 1px solid rgba(255,255,255,.22); background: #262a34;
-        color: #ffffff; font-size: 18px; font-weight: 700; line-height: 1.1;
+        border: 1px solid #CDD3DE; background: #ffffff;
+        color: #172033; font-size: 16px; font-weight: 700; line-height: 1.1;
         white-space: nowrap; cursor: pointer;
       }}
-      button:hover {{ border-color: #7d8799; background: #323744; }}
-      #status {{ font-size: 11px; color: #888; white-space: nowrap; }}
+      button:hover {{ border-color: #4058C7; background: #F7F8FB; }}
+      #status {{ font-size: 11px; color: #68758B; white-space: nowrap; }}
     </style>
     <div class="speech-wrap">
       <button id="speak" type="button">{safe_label}</button>
@@ -738,6 +738,259 @@ div[data-testid="stRadio"] label:has(input:checked) {
 div[data-testid="stRadio"] label:has(input:checked) p {
     color: #ffffff !important;
 }
+
+/* Clean Study visual system — preserve the existing widgets and behavior. */
+:root { color-scheme: light; }
+html, body, [data-testid="stAppViewContainer"], [data-testid="stApp"] {
+    background: #E9EDF3 !important;
+    color: #172033 !important;
+}
+.stMarkdown, .stMarkdown p, .stMarkdown li, .stMarkdown strong,
+.stCaption, [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p,
+label, label p {
+    color: #172033 !important;
+}
+.stCaption, [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p {
+    color: #68758B !important;
+}
+.stButton > button p, .stLinkButton > a p, .stDownloadButton > button p {
+    color: inherit !important;
+}
+.stTextInput input, .stNumberInput input, textarea,
+[data-baseweb="select"] > div {
+    background: #FFFFFF !important;
+    color: #172033 !important;
+    border-color: #CDD3DE !important;
+}
+.stTextInput input::placeholder, .stNumberInput input::placeholder {
+    color: #8A94A8 !important;
+}
+[data-testid="stHeader"] { background: transparent !important; }
+[data-testid="stMainBlockContainer"] {
+    max-width: 1120px;
+    padding: 2.5rem 2.5rem 4rem !important;
+}
+section[data-testid="stSidebar"] {
+    width: 230px !important;
+    min-width: 230px !important;
+    background: #FFFFFF !important;
+    border-right: 1px solid #DDE2EA;
+}
+section[data-testid="stSidebar"] > div:first-child {
+    width: 230px !important;
+    background: #FFFFFF !important;
+    padding: 1rem 0.9rem 1.25rem !important;
+}
+section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] { gap: 0.45rem; }
+section[data-testid="stSidebar"] .sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0.1rem 0 0.65rem;
+    color: #172033;
+}
+section[data-testid="stSidebar"] .sidebar-brand .brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: #4058C7;
+    color: #FFFFFF;
+    font-size: 16px;
+}
+section[data-testid="stSidebar"] .sidebar-brand b {
+    display: block;
+    font-size: 12px;
+    line-height: 1.1;
+}
+section[data-testid="stSidebar"] .sidebar-brand small {
+    display: block;
+    color: #68758B;
+    font-size: 10px;
+    margin-top: 2px;
+}
+section[data-testid="stSidebar"] .sidebar-section-title {
+    color: #8A94A8;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    margin: 0.9rem 0 0.2rem 0.15rem;
+}
+section[data-testid="stSidebar"] .stButton > button,
+section[data-testid="stSidebar"] .stLinkButton > a {
+    min-height: 34px !important;
+    border-radius: 9px !important;
+    padding: 0.35rem 0.65rem !important;
+    font-size: 12px !important;
+}
+section[data-testid="stSidebar"] [data-testid="stRadio"] > div[role="radiogroup"] {
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    gap: 2px !important;
+}
+section[data-testid="stSidebar"] [data-testid="stRadio"] label {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-left: 3px solid transparent !important;
+    border-radius: 8px !important;
+    color: #68758B !important;
+    padding: 0.45rem 0.65rem !important;
+}
+section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) {
+    background: #EEF1FF !important;
+    border-left-color: #4058C7 !important;
+}
+section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) p {
+    color: #354AB0 !important;
+}
+section[data-testid="stSidebar"] [data-testid="stRadio"] label div[data-testid="stMarkdownContainer"] p {
+    font-size: 12px !important;
+    font-weight: 600 !important;
+}
+section[data-testid="stSidebar"] [data-testid="stExpander"] {
+    background: #F7F8FB !important;
+    border: 1px solid #CDD3DE !important;
+    border-radius: 9px !important;
+}
+section[data-testid="stSidebar"] [data-testid="stExpander"] details,
+section[data-testid="stSidebar"] [data-testid="stExpander"] summary {
+    background: #F7F8FB !important;
+}
+section[data-testid="stSidebar"] [data-testid="stExpander"] summary {
+    color: #172033 !important;
+    font-size: 12px !important;
+}
+section[data-testid="stSidebar"] [data-testid="stCheckbox"] label p,
+section[data-testid="stSidebar"] [data-testid="stToggle"] label p,
+section[data-testid="stSidebar"] [data-testid="stNumberInput"] label p {
+    color: #172033 !important;
+    font-size: 11px !important;
+}
+section[data-testid="stSidebar"] [data-testid="stToggle"] [role="switch"] {
+    transform: scale(0.82);
+    transform-origin: right center;
+}
+.page-heading { margin: 0 0 1.25rem; }
+.page-heading h1 {
+    color: #172033 !important;
+    font-size: 2rem !important;
+    line-height: 1.15 !important;
+    margin: 0 !important;
+    font-weight: 800 !important;
+}
+.page-heading p {
+    color: #68758B !important;
+    font-size: 0.82rem !important;
+    margin: 0.28rem 0 0 !important;
+}
+.stButton > button, .stLinkButton > a, .stDownloadButton > button {
+    background: #FFFFFF !important;
+    color: #172033 !important;
+    border: 1px solid #CDD3DE !important;
+    border-radius: 10px !important;
+    box-shadow: none !important;
+    font-weight: 650 !important;
+    min-height: 42px !important;
+    transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.stButton > button:hover, .stLinkButton > a:hover, .stDownloadButton > button:hover {
+    background: #F7F8FB !important;
+    border-color: #4058C7 !important;
+    transform: translateY(-1px);
+}
+.stButton > button[kind="primary"], .stButton > button[data-testid="baseButton-primary"] {
+    background: #4058C7 !important;
+    color: #FFFFFF !important;
+    border-color: #4058C7 !important;
+}
+.st-key-remember_btn button {
+    background: #F0FAF5 !important;
+    border-color: #62B88F !important;
+    color: #237C58 !important;
+    font-size: 16px !important;
+    padding: 0.7rem 0.5rem !important;
+}
+.st-key-forget_btn button {
+    background: #FFF4F3 !important;
+    border-color: #E48A83 !important;
+    color: #B8453E !important;
+    font-size: 16px !important;
+    padding: 0.7rem 0.5rem !important;
+}
+[data-testid="stMetric"] {
+    background: #FFFFFF;
+    border: 1px solid #E0E4EB;
+    border-radius: 11px;
+    padding: 0.7rem 0.9rem;
+}
+[data-testid="stMetricLabel"] { color: #68758B !important; }
+[data-testid="stMetricValue"] { color: #172033 !important; }
+.flip-card { margin: 0.5rem 0 0.9rem; }
+.flip-card-front, .flip-card-back {
+    background: #FFFFFF !important;
+    color: #172033 !important;
+    border: 1px solid #E0E4EB;
+    box-shadow: 0 8px 24px rgba(30,41,59,.10) !important;
+}
+.flip-card-front .id-badge, .flip-card-back .id-badge,
+.flip-card-front .hsk-badge, .flip-card-back .hsk-badge {
+    background: #EEF1FF !important;
+    color: #354AB0 !important;
+    border-radius: 7px !important;
+    padding: 5px 9px !important;
+}
+.flip-card-front .hsk-badge { left: 14px; right: auto; }
+.flip-card-front .id-badge { left: auto; right: 14px; color: #68758B !important; background: #F4F6FA !important; }
+.flip-card-back .hsk-badge { left: 14px; }
+.flip-card-back .id-badge { right: 14px; }
+.pinyin-text { color: #68758B; font-size: 22px; }
+.meaning-text { color: #172033; font-size: 25px; }
+.ex-line { color: #172033; background: #F7F8FB; border-color: #E0E4EB; }
+.click-hint { color: #68758B; }
+.quiz-word-card {
+    background: #FFFFFF;
+    border: 1px solid #E0E4EB;
+    border-radius: 15px;
+    box-shadow: 0 8px 24px rgba(30,41,59,.10);
+    padding: 1.4rem 1rem;
+    text-align: center;
+    margin: 0.7rem 0 1rem;
+}
+.quiz-word-card .quiz-level { color: #4058C7; background: #EEF1FF; border-radius: 6px; display: inline-block; padding: 3px 8px; font-size: 11px; }
+.quiz-word-card .quiz-word { color: #172033; font-size: 3.2rem; font-weight: 800; line-height: 1.1; margin: 0.5rem 0; }
+.quiz-word-card .quiz-pinyin { color: #68758B; font-size: 0.9rem; }
+.quiz-audio-card {
+    background: #FFFFFF;
+    border: 1px solid #E0E4EB;
+    border-radius: 15px;
+    padding: 1rem;
+    text-align: center;
+    box-shadow: 0 8px 24px rgba(30,41,59,.08);
+}
+.study-progress {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: #FFFFFF;
+    border: 1px solid #E0E4EB;
+    border-radius: 11px;
+    padding: 0.7rem 1rem;
+    margin: 0 0 1rem;
+}
+.study-progress-label { color: #68758B; font-size: 11px; }
+.study-progress-value { color: #172033; font-size: 16px; font-weight: 800; white-space: nowrap; }
+.study-progress-track { flex: 1; height: 6px; background: #E3E7EE; border-radius: 999px; overflow: hidden; }
+.study-progress-fill { height: 100%; background: #4058C7; border-radius: 999px; }
+[data-testid="stDataFrame"] { border: 1px solid #E0E4EB; border-radius: 12px; overflow: hidden; background: #FFFFFF; }
+@media (max-width: 760px) {
+    [data-testid="stMainBlockContainer"] { padding: 1.2rem 0.8rem 3rem !important; }
+    .page-heading h1 { font-size: 1.55rem !important; }
+    .flip-card { height: 300px !important; }
+    .quiz-word-card .quiz-word { font-size: 2.55rem; }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -851,13 +1104,24 @@ def _activate_player_context(force=False):
 
 _activate_player_context()
 
-st.title("🇨🇳 HSK Flashcard Intelligence")
+st.sidebar.markdown(
+    '<div class="sidebar-brand"><span class="brand-mark">汉</span>'
+    '<span><b>HSK Cake</b><small>study app</small></span></div>',
+    unsafe_allow_html=True,
+)
 
 st.sidebar.markdown('<div class="sidebar-section-title">🙋 ผู้เล่น</div>', unsafe_allow_html=True)
 st.sidebar.markdown(f"**👤 {_current_player_name()}**")
 if st.sidebar.button("🔄 เปลี่ยนผู้ใช้", width="stretch", key="switch_player_btn"):
     st.session_state.player_name = ""
     st.rerun()
+
+_TAB_LABELS = ["🎴 Flashcard", "🎯 Quiz", "📖 คำศัพท์", "📋 ประวัติ"]
+st.sidebar.markdown('<div class="sidebar-section-title">เมนู</div>', unsafe_allow_html=True)
+active_tab_choice = st.sidebar.radio(
+    "เมนู", _TAB_LABELS,
+    horizontal=False, label_visibility="collapsed", key="active_tab_radio",
+)
 
 
 uploaded = st.session_state.get("_uploaded_file_widget_value", None)
@@ -1296,23 +1560,21 @@ filtered_df = df[df["hsk_levels"].apply(lambda memberships: bool(_selected_level
 
 if "audio_enabled" not in st.session_state:
     st.session_state.audio_enabled = True
-
-audio_label = ("🔊 เสียงเปิด" if st.session_state.audio_enabled else "🔇 เสียงปิด")
-if st.sidebar.button(audio_label, width="stretch", key="audio_sidebar_btn"):
-    st.session_state.audio_enabled = not st.session_state.audio_enabled
-    st.rerun()
+st.session_state.audio_enabled = st.sidebar.toggle(
+    "🔊 เสียง", value=st.session_state.audio_enabled, key="audio_sidebar_toggle",
+)
 
 if "ai_panel_open" not in st.session_state:
-    st.session_state.ai_panel_open = True
-
-ai_label = ("🤖 AI เปิด" if st.session_state.ai_panel_open else "🤖 AI ปิด")
-if st.sidebar.button(ai_label, width="stretch", key="ai_sidebar_btn"):
-    st.session_state.ai_panel_open = not st.session_state.ai_panel_open
-    st.rerun()
+    st.session_state.ai_panel_open = False
+st.session_state.ai_panel_open = st.sidebar.toggle(
+    "🤖 AI", value=st.session_state.ai_panel_open, key="ai_sidebar_toggle",
+)
 
 if "quiz_auto_next" not in st.session_state:
     st.session_state.quiz_auto_next = True
-st.sidebar.checkbox("เลื่อนไปข้อถัดไปอัตโนมัติเมื่อตอบ", key="quiz_auto_next")
+st.session_state.quiz_auto_next = st.sidebar.toggle(
+    "อัตโนมัติ", value=st.session_state.quiz_auto_next, key="quiz_auto_next_toggle",
+)
 
 if st.session_state.quiz_auto_next:
     if "quiz_auto_next_seconds" not in st.session_state:
@@ -1376,10 +1638,16 @@ else:
             st.session_state.confirm_reset_progress = False
             st.rerun()
 
-_TAB_LABELS = ["🎴 Flashcard", "🎯 Quiz", "📖 คำศัพท์", "📋 ประวัติ"]
-active_tab_choice = st.radio(
-    "เมนู", _TAB_LABELS,
-    horizontal=True, label_visibility="collapsed", key="active_tab_radio",
+_PAGE_META = {
+    "🎴 Flashcard": ("Flashcard", "ฝึกคำศัพท์ตามรอบทบทวน"),
+    "🎯 Quiz": ("Quiz", "เห็นคำจีนหรือฟังเสียง แล้วเลือกคำตอบ"),
+    "📖 คำศัพท์": ("คำศัพท์", "ค้นหาและทบทวนคำศัพท์ทั้งหมด"),
+    "📋 ประวัติ": ("ประวัติ", "คะแนนของฉันและ Leaderboard"),
+}
+_page_title, _page_subtitle = _PAGE_META[active_tab_choice]
+st.markdown(
+    f'<div class="page-heading"><h1>{_page_title}</h1><p>{_page_subtitle}</p></div>',
+    unsafe_allow_html=True,
 )
 st.divider()
 
@@ -1472,10 +1740,20 @@ if active_tab_choice == "🎴 Flashcard":
                 'hsk_level_label', st.session_state.current_word['hsk_level']
             )
 
+            _study_done = len(st.session_state.remembered) + len(st.session_state.forgotten)
+            _study_goal = max(1, min(len(filtered_df), 20))
+            _study_progress = min(100, int((_study_done / _study_goal) * 100))
+            st.markdown(
+                f'<div class="study-progress"><span class="study-progress-label">วันนี้</span>'
+                f'<span class="study-progress-value">{_study_done} / {_study_goal} คำ</span>'
+                f'<span class="study-progress-track"><span class="study-progress-fill" style="width:{_study_progress}%"></span></span></div>',
+                unsafe_allow_html=True,
+            )
+
             example_lines = get_examples_html(st.session_state.current_word)
             example_html = "".join(f'<div class="ex-line">{line}</div>' for line in example_lines)
 
-            _CARD_HEIGHT = 380
+            _CARD_HEIGHT = 320
             card_html = f"""
 <div class="flip-card {flipped_class}" style="height:{_CARD_HEIGHT}px;">
     <div class="flip-card-inner">
@@ -1671,8 +1949,6 @@ elif active_tab_choice == "🎯 Quiz":
     elif len(filtered_df) < 4:
         st.warning("⚠️ ต้องมีคำอย่างน้อย 4 คำในเลเวลที่เลือก ถึงจะสร้างตัวเลือกให้ได้")
     else:
-        st.markdown("### 🎯 Quiz")
-
         if "quiz_mode" not in st.session_state:
             st.session_state.quiz_mode = "meaning"
 
@@ -1736,10 +2012,10 @@ elif active_tab_choice == "🎯 Quiz":
         if st.session_state.quiz_mode == "meaning":
             colors = get_hsk_color(target["hsk_level"])
             st.markdown(
-                f'<div style="background:linear-gradient({colors["gradient"]});border-radius:20px;'
-                f'padding:36px;text-align:center;margin-bottom:16px;">'
-                f'<div style="font-size:13px;color:white;opacity:0.8;margin-bottom:8px;">HSK {target_level}</div>'
-                f'<div style="font-size:64px;font-weight:800;color:white;">{target_word}</div>'
+                f'<div class="quiz-word-card">'
+                f'<div class="quiz-level">HSK {target_level}</div>'
+                f'<div class="quiz-word">{target_word}</div>'
+                f'<div class="quiz-pinyin">{target.get(pinyin_col, target.get("pinyin", ""))}</div>'
                 f'</div>', unsafe_allow_html=True,
             )
             st.markdown("**เลือกความหมายที่ถูกต้อง:**")
@@ -1747,7 +2023,11 @@ elif active_tab_choice == "🎯 Quiz":
                 str(opt.get(trans_th_col, opt.get("trans_th", ""))) for opt in st.session_state.quiz_options
             ]
         else:
-            st.info(f"HSK {target_level} — กดปุ่มฟังเสียง แล้วเลือกคำจีนที่ได้ยิน")
+            st.markdown(
+                f'<div class="quiz-audio-card"><span class="quiz-level">HSK {target_level}</span>'
+                f'<p style="margin:.55rem 0 0;color:#68758B;font-size:.82rem;">กดเพื่อฟังเสียง แล้วเลือกคำจีนที่ได้ยิน</p></div>',
+                unsafe_allow_html=True,
+            )
             try:
                 render_audio_player(target_word_spoken, "🔊 ฟังเสียงซ้ำ", autoplay=False)
                 st.session_state.quiz_audio_played = True
@@ -1829,8 +2109,6 @@ elif active_tab_choice == "🎯 Quiz":
 
 elif active_tab_choice == "📖 คำศัพท์":
     if not filtered_df.empty:
-        st.markdown("### 🔍 ค้นหาคำศัพท์")
-
         if "vocab_search_clear_flag" not in st.session_state:
             st.session_state.vocab_search_clear_flag = False
 
