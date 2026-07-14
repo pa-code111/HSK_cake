@@ -490,7 +490,7 @@ id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,examp
 489,2,这么,zhème,代,pron.,คำสรรพนาม,so much; this much,ดังนั้น,你怎么这么晚来？,ทำไมคุณถึงมาสายขนาดนี้?,Why did you come so late?
 490,2(5),正,zhèng,副、（形）,adj. / adv.,คำวิเศษณ์ / (คำคุณศัพท์),just; right; straight; upright,กำลัง / พอดี / ตรง,他正在学习。| 这个答案是正确的。,เขากำลังเรียนอยู่ | คำตอบนี้ถูกต้อง,He is studying. | This answer is correct.
 491,2,这样,zhèyàng,代,pron.,คำสรรพนาม,this kind of; so,ดังนั้น,不要这样做。,อย่าทำแบบนี้,Don't do it this way.
-492,2(6),周,zhōu,名、（量）,n. / meas.,คำนาม / (ลักษณนาม),week; Zhou (dynasty),สัปดาห์,一周有七天。,หนึ่งสัปดาห์มีเจ็ดวัน,There are seven days in a week.
+492,2(6),周,zhōu,名、（量）,n. / meas.,คำนาม / (ลักษณนาม),week; Zhou (dynasty),สัปดาห์; ราชวงศ์โจว,一周有七天。,หนึ่งสัปดาห์มีเจ็ดวัน,There are seven days in a week.
 493,2,准备,zhǔnbèi,动,v.,กริยา,preparation; to prepare,เตรียมตัว,我在准备考试。,ฉันกำลังเตรียมตัวสอบ,I am preparing for the exam.
 494,2,自己,zìjǐ,代,pron.,คำสรรพนาม,oneself; one's own,ตัวเอง / ของตัวเอง,你要相信自己。,คุณต้องเชื่อมั่นในตัวเอง,You must believe in yourself.
 495,2,走,zǒu,动,v.,กริยา,to walk; to go,เดิน,我们走路去学校。,เราเดินไปโรงเรียน,We walk to school.
@@ -952,7 +952,7 @@ id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,examp
 951,3,员,yuán,后缀,suff.,คำต่อท้าย,person; employee,สมาชิก,我们来学习“员”的用法。这个词在汉语中很常见。,มาเรียนรู้วิธีใช้คำนี้กันเถอะ คำนี้ใช้บ่อยในภาษาจีน,Let's learn how to use this word. This word is common in Chinese.
 952,3,愿意,yuànyì,动,v.,กริยาช่วย (modal verb),to wish; to want,เต็มใจ,他愿意了。,เขาเต็มใจแล้ว,He wishs.
 953,3,遇到,yùdào,动,v.,กริยา,to meet; to run into,พบปะ,他遇到了。,เขาพบปะแล้ว,He meets.
-954,3,越,yuè,副,adv.,คำวิเศษณ์,to exceed; Vietnam (abbr.),ยิ่ง...ยิ่ง... / เกิน,他越努力学习。,เขายิ่ง...ยิ่ง...ตั้งใจเรียน,He exceedss.
+954,3,越,yuè,副,adv.,คำวิเศษณ์,to exceed; Vietnam (abbr.),ยิ่ง...ยิ่ง...; เกิน; เวียดนาม (ตัวย่อ),他越努力学习，成绩越好。,ยิ่งเขาขยันเรียน ผลการเรียนก็ยิ่งดี,The harder he studies, the better his grades are.
 955,3,月亮,yuèliang,名,n.,คำนาม,the moon,ดวงจันทร์,这是月亮。,นี่คือดวงจันทร์,This is the moon.
 956,3,遇见,yùjiàn,动,v.,กริยา,to meet,พบปะ,他遇见了。,เขาพบปะแล้ว,He meets.
 957,3,羽毛球,yǔmáoqiú,名,n.,คำนาม,shuttlecock; badminton,แบดมินตัน,这是羽毛球。,นี่คือแบดมินตัน,This is shuttlecock.
@@ -1493,15 +1493,15 @@ id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,examp
 1492,4,律师,lǜshī,名,n.,คำนาม,lawyer,ทนายความ,这是律师。,นี่คือทนายความ,This is lawyer.
 1493,4,旅行,lǚxíng,动,v.,กริยา,to travel; journey,การท่องเที่ยว,他旅行了。,เขาการท่องเที่ยวแล้ว,He travels.
 1494,4,麻烦,máfan,形、动、名,n. / v. / adj.,คำคุณศัพท์ / กริยา / คำนาม,inconvenient; troublesome,ปัญหา,这个很麻烦。,อันนี้ปัญหามาก,This is very inconvenient.
-1495,4,满,mǎn,形、动,v. / adj.,คำคุณศัพท์ / กริยา,Manchu ethnic group,เต็ม,这个很满。,อันนี้เต็มมาก,This is very Manchu ethnic group.
+1495,4,满,mǎn,形、动,v. / adj.,คำคุณศัพท์ / กริยา,full; to fill; satisfied,เต็ม; เติมให้เต็ม; พอใจ,这个很满。,อันนี้เต็มมาก,This is very full.
 1496,4,馒头,mántou,名,n.,คำนาม,steamed roll; steamed bun,ซาลาเปา,这是馒头。,นี่คือซาลาเปา,This is steamed roll.
 1497,4,毛巾,máojīn,名,n.,คำนาม,towel,ผ้าขนหนู,这是毛巾。,นี่คือผ้าขนหนู,This is towel.
 1498,4,毛衣,máoyī,名,n.,คำนาม,sweater,เสื้อกันหนาว,这是毛衣。,นี่คือเสื้อกันหนาว,This is sweater.
 1499,4,帽子,màozi,名,n.,คำนาม,hat; cap,หมวก,这是帽子。,นี่คือหมวก,This is hat.
-1500,4,美,měi,形,adj.,คำคุณศัพท์,the Americas,สวย,这个很美。,อันนี้สวยมาก,This is very the Americas.
+1500,4,美,měi,形,adj.,คำคุณศัพท์,beautiful; the Americas (abbr.),สวย; อเมริกา (ตัวย่อ),这个很美。,อันนี้สวยมาก,This is very beautiful.
 1501,4,美好,měihǎo,形,adj.,คำคุณศัพท์,beautiful; fine,ดี,这个很美好。,อันนี้ดีมาก,This is very beautiful.
 1502,4,美景,měijǐng,名,n.,คำนาม,beautiful scenery,ทิวทัศน์ที่สวยงาม,这是美景。,นี่คือทิวทัศน์ที่สวยงาม,This is beautiful scenery.
-1503,4,美丽,měilì,形,adj.,คำคุณศัพท์,beautiful,ความงาม,这个很美丽。,อันนี้ความงามมาก,This is very beautiful.
+1503,4,美丽,měilì,形,adj.,คำคุณศัพท์,beautiful,สวยงาม,这个很美丽。,อันนี้สวยงามมาก,This is very beautiful.
 1504,4,美食,měishí,名,n.,คำนาม,culinary delicacy; fine food,อาหารรสเลิศ,这是美食。,นี่คืออาหารรสเลิศ,This is culinary delicacy.
 1505,4,梦,mèng,名、动,n. / v.,คำนาม / กริยา,dream,ฝัน,他梦了。,เขาฝันแล้ว,He dream.
 1506,4,梦想,mèngxiǎng,动、名,n. / v.,กริยา / คำนาม,to dream of; dream,ฝัน,他梦想了。,เขาฝันแล้ว,He dream of.
@@ -2256,7 +2256,7 @@ id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,examp
 2255,5,大型,dàxíng,形,adj.,คำคุณศัพท์,large; large-scale,ใหญ่,这个很大型。,อันนี้ใหญ่มาก,This is very large.
 2256,5,大爷,dàye,名,n.,คำนาม,arrogant idler; self-centered show-off,ลุง,这是大爷。,นี่คือลุง,This is arrogant idler.
 2257,5,大于,dàyú,动,v.,กริยา,greater than; bigger than,มากกว่า,他大于了。,เขามากกว่าแล้ว,He greater than.
-2258,5,大众,dàzhòng,名,n.,คำนาม,Volkswagen,สาธารณะ,这是大众。,นี่คือสาธารณะ,This is Volkswagen.
+2258,5,大众,dàzhòng,名,n.,คำนาม,Volkswagen; German car brand,โฟล์คสวาเกน (ยี่ห้อรถยนต์),这是大众汽车。,นี่คือรถยนต์โฟล์คสวาเกน,This is a Volkswagen.
 2259,5,登,dēng,动,v.,กริยา,to scale; to ascend,เติ้ง,他登了。,เขาเติ้งแล้ว,He scales.
 2260,5,等待,děngdài,动,v.,กริยา,to wait; to wait for,รอ,他等待了。,เขารอแล้ว,He waits.
 2261,5,灯光,dēngguāng,名,n.,คำนาม,lighting; light,แสงสว่าง,这是灯光。,นี่คือแสงสว่าง,This is lighting.
@@ -3437,7 +3437,7 @@ id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,examp
 3436,5,运用,yùnyòng,动,v.,กริยา,to use; to put to use,ใช้,他运用了。,เขาใช้แล้ว,He uses.
 3437,5,语气,yǔqì,名,n.,คำนาม,tone; manner of speaking,โทนเสียง,这是语气。,นี่คือโทนเสียง,This is tone.
 3438,5,雨水,yǔshuǐ,名,n.,คำนาม,"Rain Water (solar term, ~Feb 19)",อวี่สุ่ย (ฤดูกาลจีน ราวกุมภาพันธ์),这是雨水。,นี่คืออวี่สุ่ย (ฤดูกาลจีน ราวกุมภาพันธ์),"This is Rain Water (solar term, ~Feb 19)."
-3439,5,语文,yǔwén,名,n.,คำนาม,literature and language; Chinese,ชาวจีน,这是语文。,นี่คือชาวจีน,This is literature and language.
+3439,5,语文,yǔwén,名,n.,คำนาม,literature and language; Chinese language,วิชาภาษาและวรรณคดีจีน,这是语文课。,นี่คือวิชาภาษาและวรรณคดีจีน,This is a Chinese language class.
 3440,5,语音,yǔyīn,名,n.,คำนาม,speech sounds; pronunciation,เสียง,这是语音。,นี่คือเสียง,This is speech sounds.
 3441,5,预约,yùyuē,动,v.,กริยา,booking; reservation,จอง,他预约了。,เขาจองแล้ว,He booking.
 3442,5,在场,zàichǎng,动,v.,กริยา,to be present; to be on the scene,ณ ที่เกิดเหตุ,他在场了。,เขาณ ที่เกิดเหตุแล้ว,He be present.
@@ -3612,7 +3612,7 @@ id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,examp
 3611,6,百分点,bǎifēndiǎn,名,n.,คำนาม,percentage point,จุดเปอร์เซ็นต์,这是百分点。,นี่คือจุดเปอร์เซ็นต์,This is percentage point.
 3612,6,百货,bǎihuò,名,n.,คำนาม,general merchandise,ห้างสรรพสินค้า,这是百货。,นี่คือห้างสรรพสินค้า,This is general merchandise.
 3613,6,白领,báilǐng,名,n.,คำนาม,white-collar; white-collar worker,พนักงานออฟฟิศ,这是白领。,นี่คือพนักงานออฟฟิศ,This is white-collar.
-3614,6,拜年,bàinián,动,v.,กริยา,to pay a New Year call; to wish sb a Happy New Year,โทรหาเพื่อนในช่วงปีใหม่,他拜年了。,เขาโทรหาเพื่อนในช่วงปีใหม่แล้ว,He pay a New Year call.
+3614,6,拜年,bàinián,动,v.,กริยา,to pay a New Year call; to wish sb a Happy New Year,อวยพรปีใหม่; ไปเยี่ยมอวยพรปีใหม่,他拜年了。,เขาไปอวยพรปีใหม่แล้ว,He paid a New Year call.
 3615,6,摆脱,bǎituō,动,v.,กริยา,to break away from; to cast off,กำจัด,他摆脱了。,เขากำจัดแล้ว,He break away from.
 3616,6,版,bǎn,名、量,n. / meas.,คำนาม / ลักษณนาม,a register; block of printing,เวอร์ชั่น / (ลักษณนาม),这是版。,นี่คือเวอร์ชั่น,This is a register.
 3617,6,版本,bǎnběn,名,n.,คำนาม,version; edition,เวอร์ชั่น,这是版本。,นี่คือเวอร์ชั่น,This is version.
@@ -3634,10 +3634,10 @@ id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,examp
 3633,6,保障,bǎozhàng,动、名,n. / v.,กริยา / คำนาม,to ensure; to guarantee,รับรอง / รับประกัน,他保障了。,เขารับรองแล้ว,He ensures.
 3634,6,被动,bèidòng,形,adj.,คำคุณศัพท์,passive,พาสซีฟ,这个很被动。,อันนี้พาสซีฟมาก,This is very passive.
 3635,6,悲观,bēiguān,形,adj.,คำคุณศัพท์,pessimistic,มองโลกในแง่ร้าย,这个很悲观。,อันนี้มองโลกในแง่ร้ายมาก,This is very pessimistic.
-3636,6,北极,běijí,名,n.,คำนาม,the North Pole; the Arctic Pole,อาร์กติก,这是北极。,นี่คืออาร์กติก,This is the North Pole.
+3636,6,北极,běijí,名,n.,คำนาม,the North Pole; the Arctic Pole,ขั้วโลกเหนือ; เขตอาร์กติก,这是北极。,นี่คือขั้วโลกเหนือ,This is the North Pole.
 3637,6,悲剧,bēijù,名,n.,คำนาม,tragedy,โศกนาฏกรรม,这是悲剧。,นี่คือโศกนาฏกรรม,This is tragedy.
 3638,6,北美洲,Běiměizhōu,名,n.,คำนาม,North America,อเมริกาเหนือ,这是北美洲。,นี่คืออเมริกาเหนือ,This is North America.
-3639,6,被迫,bèipò,动,v.,กริยา,to be compelled; to be forced,บังคับ,他被迫了。,เขาบังคับแล้ว,He be compelled.
+3639,6,被迫,bèipò,动,v.,กริยา,to be compelled; to be forced,ถูกบังคับ,他被迫了。,เขาถูกบังคับแล้ว,He was compelled.
 3640,6,悲伤,bēishāng,形,adj.,คำคุณศัพท์,sad; sorrowful,เศร้า,这个很悲伤。,อันนี้เศร้ามาก,This is very sad.
 3641,6,背心,bèixīn,名,n.,คำนาม,sleeveless garment,เสื้อกั๊ก,这是背心。,นี่คือเสื้อกั๊ก,This is sleeveless garment.
 3642,6,备用,bèiyòng,动,v.,กริยา,reserve; spare,สำรอง,他备用了。,เขาสำรองแล้ว,He reserve.
@@ -3836,9 +3836,9 @@ id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,examp
 3835,6,大臣,dàchén,名,n.,คำนาม,chancellor; cabinet minister,รัฐมนตรี,这是大臣。,นี่คือรัฐมนตรี,This is chancellor.
 3836,6,大吃一惊,dàchī-yìjīng,动,v.,กริยา,to be greatly shocked/surprised,ตกใจมาก / ช็อค,他大吃一惊了。,เขาตกใจมากแล้ว,He be greatly shocked/surprised.
 3837,6,大地,dàdì,名,n.,คำนาม,earth; mother earth,โลก,这是大地。,นี่คือโลก,This is earth.
-3838,6,打动,dǎdòng,动,v.,กริยา,to move; arousing,เคลื่อนไหว,他打动了。,เขาเคลื่อนไหวแล้ว,He moves.
-3839,6,大都,dàdū,副,adv.,คำวิเศษณ์,Dadu (old name for Beijing),ต้าตู (ชื่อเก่าของปักกิ่ง),他大都努力学习。,เขาต้าตู (ชื่อเก่าของปักกิ่ง)ตั้งใจเรียน,He Dadu (old name for Beijing)s.
-3840,6,大方,dàfang,形,adj.,คำคุณศัพท์,expert; scholar,ใจกว้าง,这个很大方。,อันนี้ใจกว้างมาก,This is very expert.
+3838,6,打动,dǎdòng,动,v.,กริยา,to move; arousing,ทำให้ประทับใจ; ทำให้ซาบซึ้ง,这部电影打动了我。,ภาพยนตร์เรื่องนี้ทำให้ฉันประทับใจ,This film moved me.
+3839,6,大都,dàdū,副,adv.,คำวิเศษณ์,mostly; for the most part,ส่วนใหญ่; โดยมาก,他大都努力学习。,โดยมากเขาตั้งใจเรียน,He studies hard for the most part.
+3840,6,大方,dàfang,形,adj.,คำคุณศัพท์,generous; natural; expert,ใจกว้าง; เป็นธรรมชาติ; ผู้เชี่ยวชาญ,这个很大方。,อันนี้ใจกว้างมาก,This is very generous.
 3841,6,答复,dáfù,动,v.,กริยา,to answer; to reply,ตอบ,他答复了。,เขาตอบแล้ว,He answers.
 3842,6,大幅,dàfú,副,adv.,คำวิเศษณ์,a big margin; substantially,ใหญ่,他大幅努力学习。,เขาใหญ่ตั้งใจเรียน,He a big margins.
 3843,6,大伙儿,dàhuǒr,代,pron.,คำสรรพนาม,everyone,ทุกคน,大伙儿是谁？,ทุกคน คือใคร?,Who is ?
@@ -4633,13 +4633,13 @@ id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,examp
 4632,6,起点,qǐdiǎn,名,n.,คำนาม,starting point,จุดเริ่มต้น,这是起点。,นี่คือจุดเริ่มต้น,This is starting point.
 4633,6,启动,qǐdòng,动,v.,กริยา,to start; to set in motion,เริ่มต้น,他启动了。,เขาเริ่มต้นแล้ว,He starts.
 4634,6,切实,qièshí,形,adj.,คำคุณศัพท์,feasible; realistic,ใช้ได้จริง,这个很切实。,อันนี้ใช้ได้จริงมาก,This is very feasible.
-4635,6,启发,qǐfā,动,v.,กริยา,to enlighten; to explain,แรงบันดาลใจ,他启发了。,เขาแรงบันดาลใจแล้ว,He enlightens.
+4635,6,启发,qǐfā,动,v.,กริยา,to enlighten; to explain,สร้างแรงบันดาลใจ; ให้ข้อคิด,他的故事启发了我。,เรื่องราวของเขาสร้างแรงบันดาลใจให้ฉัน,His story inspired me.
 4636,6,气氛,qìfēn,名,n.,คำนาม,atmosphere; mood,บรรยากาศ,这是气氛。,นี่คือบรรยากาศ,This is atmosphere.
 4637,6,其间,qíjiān,名,n.,คำนาม,in between; within that interval,ในระหว่าง,这是其间。,นี่คือในระหว่าง,This is in between.
-4638,6,清,qīng,形、动,v. / adj.,คำคุณศัพท์ / กริยา,Qing or Ch'ing dynasty of imperial China,ชัดเจน / (คุณศัพท์),这个很清。,อันนี้ชัดเจนมาก,This is very Qing or Ch'ing dynasty of imperial China.
+4638,6,清,qīng,形、动,v. / adj.,คำคุณศัพท์ / กริยา,clear; clean; to clear up,ชัดเจน; สะอาด; ทำให้กระจ่าง,这个很清。,อันนี้ชัดเจนมาก,This is very clear.
 4639,6,清晨,qīngchén,名,n.,คำนาม,early morning,เช้าตรู่,这是清晨。,นี่คือเช้าตรู่,This is early morning.
 4640,6,青春,qīngchūn,名,n.,คำนาม,youth; youthfulness,ความเยาว์,这是青春。,นี่คือความเยาว์,This is youth.
-4641,6,青春期,qīngchūnqī,名,n.,คำนาม,puberty; adolescence,วัยแร้ง,这是青春期。,นี่คือวัยแร้ง,This is puberty.
+4641,6,青春期,qīngchūnqī,名,n.,คำนาม,puberty; adolescence,วัยแรกรุ่น; วัยรุ่น,这是青春期。,นี่คือช่วงวัยแรกรุ่น,This is puberty.
 4642,6,清淡,qīngdàn,形,adj.,คำคุณศัพท์,light; insipid,แสงสว่าง,这个很清淡。,อันนี้แสงสว่างมาก,This is very light.
 4643,6,情节,qíngjié,名,n.,คำนาม,plot; circumstances,พล็อต,这是情节。,นี่คือพล็อต,This is plot.
 4644,6,清洁,qīngjié,形,adj.,คำคุณศัพท์,clean; to clean,ทำความสะอาด,这个很清洁。,อันนี้ทำความสะอาดมาก,This is very clean.
@@ -5316,9 +5316,9 @@ id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,examp
 5315,6,至于,zhìyú,动、介,v. / prep.,กริยา / คำบุพบท,as for; as to,ส่วนเรื่อง / (บุพบท),他至于了。,เขาส่วนเรื่องแล้ว,He as for.
 5316,6,职员,zhíyuán,名,n.,คำนาม,office worker; staff member,พนักงาน,这是职员。,นี่คือพนักงาน,This is office worker.
 5317,6,职责,zhízé,名,n.,คำนาม,duty; responsibility,หน้าที่,这是职责。,นี่คือหน้าที่,This is duty.
-5318,6,指责,zhǐzé,动,v.,กริยา,to criticize; to find fault with,ข้อกล่าวหา,他指责了。,เขาข้อกล่าวหาแล้ว,He criticizes.
+5318,6,指责,zhǐzé,动,v.,กริยา,to criticize; to find fault with,ตำหนิ; กล่าวโทษ,他指责了。,เขาตำหนิแล้ว,He criticized.
 5319,6,侄子,zhízi,名,n.,คำนาม,brother's son; nephew,หลานชาย,这是侄子。,นี่คือหลานชาย,This is brother's son.
-5320,6,中,zhòng,动,n.,กริยา,China; Chinese,กลาง,他中了。,เขากลางแล้ว,He China.
+5320,6,中,zhòng,动,n.,กริยา,to hit; to hit the target,ถูกเป้า; โดน,他中了。,เขาถูกเป้าแล้ว,He hit the target.
 5321,6,肿,zhǒng,动,v.,กริยา,to swell; swelling,บวม,他肿了。,เขาบวมแล้ว,He swells.
 5322,6,中等,zhōngděng,形,adj.,คำคุณศัพท์,medium,ปานกลาง,这个很中等。,อันนี้ปานกลางมาก,This is very medium.
 5323,6,种地,zhòngdì,动,v.,กริยา,to farm; to work the land,การทำฟาร์ม,他种地了。,เขาการทำฟาร์มแล้ว,He farms.
@@ -5555,7 +5555,7 @@ id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,examp
 5554,7-9,备战,bèizhàn,动,v.,กริยา,prepared against war; to prepare for war,การตระเตรียม,他备战了。,เขาการตระเตรียมแล้ว,He prepared against war.
 5555,7-9,奔,bèn,动,v.,กริยา,to hurry; to rush,วิ่ง,他奔了。,เขาวิ่งแล้ว,He hurrys.
 5556,7-9,奔波,bēnbō,动,v.,กริยา,to rush about; to be constantly on the move,ยุ่ง,他奔波了。,เขายุ่งแล้ว,He rush about.
-5557,7-9,奔驰,bēnchí,动,v.,กริยา,"Benz; Mercedes-Benz, German car maker",เบนซ์,他奔驰了。,เขาเบนซ์แล้ว,He Benz.
+5557,7-9,奔驰,bēnchí,动,v.,กริยา,"Mercedes-Benz; German car brand",เมอร์เซเดส-เบนซ์ (ยี่ห้อรถยนต์),这是奔驰车。,นี่คือรถยนต์เมอร์เซเดส-เบนซ์,This is a Mercedes-Benz.
 5558,7-9,笨蛋,bèndàn,名,n.,คำนาม,fool; idiot,คนโง่,这是笨蛋。,นี่คือคนโง่,This is fool.
 5559,7-9,本分,běnfèn,名、形,n. / adj.,คำนาม / คำคุณศัพท์,one's part; one's role,หน้าที่ / (คุณศัพท์),这个很本分。,อันนี้หน้าที่มาก,This is very one's part.
 5560,7-9,奔赴,bēnfù,动,v.,กริยา,to rush to; to hurry to,รีบเร่งไป,他奔赴了。,เขารีบเร่งไปแล้ว,He rush to.
@@ -5730,10 +5730,10 @@ id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,examp
 5729,7-9,步入,bùrù,动,v.,กริยา,to step into; to enter,ก้าวเข้าไป,他步入了。,เขาก้าวเข้าไปแล้ว,He step into.
 5730,7-9,哺乳,bǔrǔ,动,v.,กริยา,breastfeeding; to suckle,การให้นมบุตร,他哺乳了。,เขาการให้นมบุตรแล้ว,He breastfeeding.
 5731,7-9,不慎,búshèn,形,adj.,คำคุณศัพท์,incautious; inattentive,อย่างไม่ระมัดระวัง,这个很不慎。,อันนี้อย่างไม่ระมัดระวังมาก,This is very incautious.
-5732,7-9,捕食,bǔshí,动,v.,กริยา,to prey on; to catch and feed on,เหยื่อ,他捕食了。,เขาเหยื่อแล้ว,He prey on.
-5733,7-9,部首,bùshǒu,名,n.,คำนาม,radical of a Chinese character,หัวรุนแรง,这是部首。,นี่คือหัวรุนแรง,This is radical of a Chinese character.
+5732,7-9,捕食,bǔshí,动,v.,กริยา,to prey on; to catch and feed on,ล่าเหยื่อ; จับสัตว์เป็นอาหาร,他在捕食。,มันกำลังล่าเหยื่อ,It is preying on another animal.
+5733,7-9,部首,bùshǒu,名,n.,คำนาม,radical of a Chinese character,หมวดอักษรจีน; ส่วนประกอบหลักของอักษรจีน,这是部首。,นี่คือหมวดอักษรจีน,This is a Chinese character radical.
 5734,7-9,部署,bùshǔ,动,v.,กริยา,to dispose; to deploy,ปรับใช้,他部署了。,เขาปรับใช้แล้ว,He disposes.
-5735,7-9,不惜,bùxī,动,v.,กริยา,not stint; not spare,ไม่เลย,他不惜了。,เขาไม่เลยแล้ว,He not stint.
+5735,7-9,不惜,bùxī,动,v.,กริยา,not stint; not spare,ไม่เสียดาย; ไม่ลังเลที่จะ,他不惜付出努力。,เขาไม่เสียดายที่จะทุ่มเทความพยายาม,He spared no effort.
 5736,7-9,不下,búxià,动,v.,กริยา,to be not less than,ไม่ล้มลง,他不下了。,เขาไม่ล้มลงแล้ว,He be not less than.
 5737,7-9,不像话,búxiànghuà,形,adj.,คำคุณศัพท์,unreasonable; shocking,อุกอาจ,这个很不像话。,อันนี้อุกอาจมาก,This is very unreasonable.
 5738,7-9,不相上下,bùxiāng-shàngxià,形,adj.,คำคุณศัพท์,about the same; neck and neck,ไม่ยิ่งหย่อนกว่ากัน,这个很不相上下。,อันนี้ไม่ยิ่งหย่อนกว่ากันมาก,This is very about the same.
@@ -5867,10 +5867,10 @@ id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,examp
 5866,7-9,扯,chě,动,v.,กริยา,to pull; to tear,ดึง,他扯了。,เขาดึงแล้ว,He pulls.
 5867,7-9,车间,chējiān,名,n.,คำนาม,workshop,เวิร์คช็อป,这是车间。,นี่คือเวิร์คช็อป,This is workshop.
 5868,7-9,撤离,chèlí,动,v.,กริยา,to withdraw from; to evacuate,การอพยพ,他撤离了。,เขาการอพยพแล้ว,He withdraw from.
-5869,7-9,沉淀,chéndiàn,动、名,n. / v.,กริยา / คำนาม,to settle; to precipitate,ปริมาณน้ำฝน / ชำระ,他沉淀了。,เขาปริมาณน้ำฝนแล้ว,He settles.
+5869,7-9,沉淀,chéndiàn,动、名,n. / v.,กริยา / คำนาม,to settle; to precipitate,ตกตะกอน; ตะกอน,他沉淀了。,มันตกตะกอนแล้ว,It has settled.
 5870,7-9,沉甸甸,chéndiàndiàn,形,adj.,คำคุณศัพท์,heavy,หนัก,这个很沉甸甸。,อันนี้หนักมาก,This is very heavy.
-5871,7-9,呈,chéng,动,v.,กริยา,to present to a superior; memorial,ปัจจุบัน,他呈了。,เขาปัจจุบันแล้ว,He present to a superior.
-5872,7-9,秤,chèng,名,n.,คำนาม,steelyard; Roman balance,เกล็ด,这是秤。,นี่คือเกล็ด,This is steelyard.
+5871,7-9,呈,chéng,动,v.,กริยา,to present to a superior; memorial,เสนอ; ยื่นต่อผู้บังคับบัญชา,他呈上了报告。,เขายื่นรายงานต่อผู้บังคับบัญชาแล้ว,He presented the report to his superior.
+5872,7-9,秤,chèng,名,n.,คำนาม,steelyard; Roman balance,ตาชั่ง; เครื่องชั่งแบบคาน,这是秤。,นี่คือตาชั่ง,This is a steelyard.
 5873,7-9,承包,chéngbāo,动,v.,กริยา,to contract; to undertake,สัญญา,他承包了。,เขาสัญญาแล้ว,He contracts.
 5874,7-9,成才,chéngcái,动,v.,กริยา,to become accomplished; to succeed,ประสบความสำเร็จในชีวิต,他成才了。,เขาประสบความสำเร็จในชีวิตแล้ว,He become accomplished.
 5875,7-9,成家,chéngjiā,动,v.,กริยา,to settle down; to start a family,สร้างครอบครัว,他成家了。,เขาสร้างครอบครัวแล้ว,He settle down.
@@ -6896,7 +6896,7 @@ id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,examp
 6895,7-9,贵宾,guìbīn,名,n.,คำนาม,honored guest; distinguished guest,วีไอพี,这是贵宾。,นี่คือวีไอพี,This is honored guest.
 6896,7-9,规格,guīgé,名,n.,คำนาม,standard; norm,ข้อกำหนด,这是规格。,นี่คือข้อกำหนด,This is standard.
 6897,7-9,归根到底,guīgēn-dàodǐ,副,adv.,คำวิเศษณ์,in the final analysis,ในที่สุดแล้ว,他归根到底努力学习。,เขาในที่สุดแล้วตั้งใจเรียน,He in the final analysiss.
-6898,7-9,桂花,guìhuā,名,n.,คำนาม,osmanthus flowers; Osmanthus fragrans,ออสแมนทัส แฟรกรันส์,这是桂花。,นี่คือออสแมนทัส แฟรกรันส์,This is osmanthus flowers.
+6898,7-9,桂花,guìhuā,名,n.,คำนาม,osmanthus flowers; Osmanthus fragrans,ดอกหอมหมื่นลี้ (ดอกออสแมนตัส),这是桂花。,นี่คือดอกหอมหมื่นลี้,These are osmanthus flowers.
 6899,7-9,轨迹,guǐjì,名,n.,คำนาม,locus; orbit,วิถีโคจร,这是轨迹。,นี่คือวิถีโคจร,This is locus.
 6900,7-9,诡计,guǐjì,名,n.,คำนาม,trick; ruse,เล่ห์เหลี่ยม,这是诡计。,นี่คือเล่ห์เหลี่ยม,This is trick.
 6901,7-9,归结,guījié,动,v.,กริยา,to sum up; to conclude,บทสรุป,他归结了。,เขาบทสรุปแล้ว,He sum up.
@@ -8203,7 +8203,7 @@ id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,examp
 8202,7-9,面目全非,miànmù-quánfēi,形,adj.,คำคุณศัพท์,completely changed,เปลี่ยนไปจนจำไม่ได้,这个很面目全非。,อันนี้เปลี่ยนไปจนจำไม่ได้มาก,This is very completely changed.
 8203,7-9,腼腆,miǎntiǎn,形,adj.,คำคุณศัพท์,shy; bashful,อาย,这个很腼腆。,อันนี้อายมาก,This is very shy.
 8204,7-9,免职,miǎnzhí,动,v.,กริยา,to relieve sb of his post; to sack,การไล่ออก,他免职了。,เขาการไล่ออกแล้ว,He relieve sb of his post.
-8205,7-9,苗,miáo,名,n.,คำนาม,Hmong or Miao ethnic group of southwest China,ต้นกล้า,这是苗。,นี่คือต้นกล้า,This is Hmong or Miao ethnic group of southwest China.
+8205,7-9,苗,miáo,名,n.,คำนาม,Hmong or Miao ethnic group of southwest China,ต้นกล้า; ชาวเมี่ยว (กลุ่มชาติพันธุ์),这是苗族。,นี่คือชาวเมี่ยว,This is the Miao ethnic group.
 8206,7-9,庙,miào,名,n.,คำนาม,temple; ancestral shrine,วัด,这是庙。,นี่คือวัด,This is temple.
 8207,7-9,庙会,miàohuì,名,n.,คำนาม,temple fair,งานวัด,这是庙会。,นี่คืองานวัด,This is temple fair.
 8208,7-9,藐视,miǎoshì,动,v.,กริยา,to despise; to look down on,ความดูหมิ่น,他藐视了。,เขาความดูหมิ่นแล้ว,He despises.
@@ -8358,7 +8358,7 @@ id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,examp
 8357,7-9,年限,niánxiàn,名,n.,คำนาม,age limit; fixed number of years,ปี,这是年限。,นี่คือปี,This is age limit.
 8358,7-9,年薪,niánxīn,名,n.,คำนาม,annual salary,เงินเดือนประจำปี,这是年薪。,นี่คือเงินเดือนประจำปี,This is annual salary.
 8359,7-9,尿,niào,名、动,n. / v.,คำนาม / กริยา,to urinate; urine,ปัสสาวะ / (กริยา: urinate),他尿了。,เขาปัสสาวะแล้ว,He urinates.
-8360,7-9,鸟巢,niǎocháo,名,n.,คำนาม,bird's nest; nickname for Beijing 2008 Olympic stadium,รังนก,这是鸟巢。,นี่คือรังนก,This is bird's nest.
+8360,7-9,鸟巢,niǎocháo,名,n.,คำนาม,bird's nest; nickname for Beijing 2008 Olympic stadium,รังนก; สนามกีฬารังนกแห่งปักกิ่ง,这是鸟巢体育场。,นี่คือสนามกีฬารังนกแห่งปักกิ่ง,This is the Bird's Nest stadium.
 8361,7-9,拟定,nǐdìng,动,v.,กริยา,to draw up; to draft,ร่าง,他拟定了。,เขาร่างแล้ว,He draw up.
 8362,7-9,捏,niē,动,v.,กริยา,to pinch; to knead,หยิก,他捏了。,เขาหยิกแล้ว,He pinchs.
 8363,7-9,逆境,nìjìng,名,n.,คำนาม,adversity; predicament,ความยากลำบาก,这是逆境。,นี่คือความยากลำบาก,This is adversity.
@@ -8454,12 +8454,12 @@ id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,examp
 8453,7-9,偏爱,piān'ài,动,v.,กริยา,to favor,ชอบเป็นพิเศษ,他偏爱了。,เขาชอบเป็นพิเศษแล้ว,He favors.
 8454,7-9,偏差,piānchā,名,n.,คำนาม,bias; deviation,การเบี่ยงเบน,这是偏差。,นี่คือการเบี่ยงเบน,This is bias.
 8455,7-9,片段,piànduàn,名,n.,คำนาม,fragment; extract,บทคัดย่อ,这是片段。,นี่คือบทคัดย่อ,This is fragment.
-8456,7-9,篇幅,piānfú,名,n.,คำนาม,length; space occupied on a printed page,ช่องว่าง,这是篇幅。,นี่คือช่องว่าง,This is length.
+8456,7-9,篇幅,piānfú,名,n.,คำนาม,length; space occupied on a printed page,ความยาวของเนื้อหา; พื้นที่ที่เนื้อหากินบนหน้า,这篇文章篇幅很长。,บทความนี้มีเนื้อหายาวมาก,This article is very long.
 8457,7-9,偏见,piānjiàn,名,n.,คำนาม,prejudice,อคติ,这是偏见。,นี่คืออคติ,This is prejudice.
-8458,7-9,偏离,piānlí,动,v.,กริยา,to deviate; to diverge,การเบี่ยงเบน,他偏离了。,เขาการเบี่ยงเบนแล้ว,He deviates.
-8459,7-9,偏旁,piānpáng,名,n.,คำนาม,component of a Chinese character,หัวรุนแรง,这是偏旁。,นี่คือหัวรุนแรง,This is component of a Chinese character.
+8458,7-9,偏离,piānlí,动,v.,กริยา,to deviate; to diverge,เบี่ยงเบน; ออกนอกเส้นทาง,他偏离了路线。,เขาออกนอกเส้นทางแล้ว,He deviated from the route.
+8459,7-9,偏旁,piānpáng,名,n.,คำนาม,component of a Chinese character,ส่วนประกอบของอักษรจีน,这是偏旁。,นี่คือส่วนประกอบของอักษรจีน,This is a component of a Chinese character.
 8460,7-9,偏僻,piānpì,形,adj.,คำคุณศัพท์,remote; desolate,ระยะไกล,这个很偏僻。,อันนี้ระยะไกลมาก,This is very remote.
-8461,7-9,偏偏,piānpiān,副,adv.,คำวิเศษณ์,unfortunately; as it happened,แต่,他偏偏努力学习。,เขาแต่ตั้งใจเรียน,He unfortunatelys.
+8461,7-9,偏偏,piānpiān,副,adv.,คำวิเศษณ์,unfortunately; as it happened,กลับ...เสียอย่างนั้น; ดัน...,他偏偏努力学习。,เขากลับขยันเรียนเสียอย่างนั้น,He unexpectedly studies hard.
 8462,7-9,偏向,piānxiàng,名、动,n. / v.,คำนาม / กริยา,partial towards sth; to prefer,อคติ / (กริยา: prefer),他偏向了。,เขาอคติแล้ว,He partial towards sth.
 8463,7-9,偏远,piānyuǎn,形,adj.,คำคุณศัพท์,remote; far from civilization,ระยะไกล,这个很偏远。,อันนี้ระยะไกลมาก,This is very remote.
 8464,7-9,片子,piānzi,名,n.,คำนาม,film; movie,ฟิล์ม,这是片子。,นี่คือฟิล์ม,This is film.
@@ -9617,12 +9617,12 @@ id,hsk_level,word,pinyin,pos_zh,pos_en,pos_th,trans_en,trans_th,example_zh,examp
 9616,7-9,惋惜,wǎnxī,形,adj.,คำคุณศัพท์,to regret; to feel that it is a great pity,เสียใจ,这个很惋惜。,อันนี้เสียใจมาก,This is very to regret.
 9617,7-9,晚霞,wǎnxiá,名,n.,คำนาม,sunset glow; sunset clouds,พระอาทิตย์ตก,这是晚霞。,นี่คือพระอาทิตย์ตก,This is sunset glow.
 9618,7-9,玩意儿,wányìr,名,n.,คำนาม,thing,สิ่ง,这只是玩意儿，不是真的。,นี่แค่ของเล่น ไม่ใช่ของจริง,"This is just a toy, not the real thing."
-9619,7-9,丸子,wánzi,名,n.,คำนาม,pills; balls,ลูกบอล,这是丸子。,นี่คือลูกบอล,This is pills.
-9620,7-9,唯,wéi,副,adv.,คำวิเศษณ์,-ism; only,เท่านั้น,他唯努力学习。,เขาเท่านั้นตั้งใจเรียน,He -isms.
-9621,7-9,微,wēi,副,adv.,คำวิเศษณ์,ancient Chinese state near present day Chongqing,ไมโคร,他微努力学习。,เขาไมโครตั้งใจเรียน,He ancient Chinese state near present day Chongqings.
-9622,7-9,违背,wéibèi,动,v.,กริยา,to go against; to be contrary to,การละเมิด,他违背了。,เขาการละเมิดแล้ว,He go against.
+9619,7-9,丸子,wánzi,名,n.,คำนาม,pills; meatballs,ลูกชิ้น; ยาเม็ด,这是丸子。,นี่คือลูกชิ้น,These are meatballs.
+9620,7-9,唯,wéi,副,adv.,คำวิเศษณ์,only; solely,เพียง; เท่านั้น,他唯努力学习。,เขาเพียงตั้งใจเรียนเท่านั้น,He only studies hard.
+9621,7-9,微,wēi,副,adv.,คำวิเศษณ์,slightly; subtly; tiny,เล็กน้อย; อย่างละเอียดอ่อน; เล็กจิ๋ว,他微微一笑。,เขายิ้มเล็กน้อย,He smiled slightly.
+9622,7-9,违背,wéibèi,动,v.,กริยา,to go against; to be contrary to,ฝ่าฝืน; ขัดต่อ,他违背了规定。,เขาฝ่าฝืนกฎระเบียบแล้ว,He violated the regulations.
 9623,7-9,微波炉,wēibōlú,名,n.,คำนาม,microwave oven,เตาไมโครเวฟ,这是微波炉。,นี่คือเตาไมโครเวฟ,This is microwave oven.
-9624,7-9,微不足道,wēibùzúdào,-,-,-,negligible; insignificant,เล็กน้อย,这是微不足道。,นี่คือเล็กน้อย,This is negligible.
+9624,7-9,微不足道,wēibùzúdào,-,-,-,negligible; insignificant,เล็กน้อยจนไม่สำคัญ,这点小事微不足道。,เรื่องเล็กน้อยนี้ไม่สำคัญ,This small matter is insignificant.
 9625,7-9,唯独,wéidú,副,adv.,คำวิเศษณ์,only; just,เท่านั้น,他唯独努力学习。,เขาเท่านั้นตั้งใจเรียน,He onlys.
 9626,7-9,纬度,wěidù,名,n.,คำนาม,latitude,ละติจูด,这是纬度。,นี่คือละติจูด,This is latitude.
 9627,7-9,威风,wēifēng,名、形,n.,คำนาม / คำคุณศัพท์,prestige,บารมี / (คุณศัพท์),这个很威风。,อันนี้บารมีมาก,This is very prestige.

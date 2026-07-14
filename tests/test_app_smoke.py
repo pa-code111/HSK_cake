@@ -23,6 +23,14 @@ class HskAppSmokeTest(unittest.TestCase):
         self.assertEqual(rows[45]["pos_zh"], "代")
         self.assertEqual(rows[326]["word"], "打1")
         self.assertEqual(rows[5441]["trans_th"], "นัดหยุดงาน")
+        rows_by_id = {int(row["id"]): row for row in rows}
+        self.assertEqual(rows_by_id[5557]["trans_th"], "เมอร์เซเดส-เบนซ์ (ยี่ห้อรถยนต์)")
+        self.assertEqual(rows_by_id[2258]["trans_th"], "โฟล์คสวาเกน (ยี่ห้อรถยนต์)")
+        self.assertEqual(rows_by_id[5733]["trans_th"], "หมวดอักษรจีน; ส่วนประกอบหลักของอักษรจีน")
+        self.assertEqual(rows_by_id[8459]["trans_th"], "ส่วนประกอบของอักษรจีน")
+        self.assertEqual(rows_by_id[9621]["trans_th"], "เล็กน้อย; อย่างละเอียดอ่อน; เล็กจิ๋ว")
+        self.assertNotIn("หัวรุนแรง", rows_by_id[5733]["trans_th"])
+        self.assertNotIn("หัวรุนแรง", rows_by_id[8459]["trans_th"])
 
     def test_vocab_translations_are_clean_after_rebuild(self):
         han = re.compile(r"[\u3400-\u9fff]")
